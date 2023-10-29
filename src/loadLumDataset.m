@@ -116,7 +116,7 @@ for i = 1:length(parameters)
         if ~all(diff(value) >= 0) && ~all(diff(value) <= 0)
             %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
             % Plotting should not work if it is not monotonic
-            warning("Data of parameter '" + interdep_parameter_name + "' is not monotonic!");
+            warning("Data of parameter '" + interdep_parameter_name + "' is not monotonic! Plots cannot be made correctly!");
         end
         parameter_length(j) = length(value);
         parameter_values(:, j) = value;
