@@ -57,7 +57,7 @@ classdef (Abstract) LumericalDataset < matlab.mixin.Copyable
         function showInformation(obj)
             % Display the information for an overview of this dataset
             % Print attributes information
-            fprintf("%d attributes:\n", obj.num_attributes);
+            fprintf("%d attribute(s):\n", obj.num_attributes);
             attributes_fields = fieldnames(obj.attributes);
             max_str_length = max(cellfun(@length, attributes_fields)); % max name length
             for i = 1:obj.num_attributes
@@ -69,12 +69,12 @@ classdef (Abstract) LumericalDataset < matlab.mixin.Copyable
                 end
                 fprintf("%-*s | %s\n", max_str_length, field, type); % attribute names and types
             end
-            fprintf("%d parameters:\n", obj.num_parameters);
+            fprintf("%d parameter(s):\n", obj.num_parameters);
             % Print parameters information
             params = obj.parameters(:, 1);
             max_digits = max(cellfun(@(x) length(num2str(x)), obj.parameters(:, 3))); % max number of points length
             for i = 1:obj.num_parameters
-                fprintf("%*d points | ", max_digits, obj.parameters{i, 3}); % number of points
+                fprintf("%*d point(s) | ", max_digits, obj.parameters{i, 3}); % number of points
                 for param = params{i} % independent parameter names
                     fprintf("%s ", param);
                 end

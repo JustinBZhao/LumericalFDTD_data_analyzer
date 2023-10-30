@@ -1,6 +1,6 @@
 function [parameters_info, attributes_info, attributes_component, xyz] = loadLumDataset(lum_dataset)
 % Do not pre-assign enough memory. Arrays are small anyways
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Problems not solved %%%%%%%%%%%%%%%%
 % Check contents in Lumerical_dataset.attributes (also if it includes
 % 'geometry')
 % Check if it is actually a dataset (check every single aspect of it)?
@@ -11,6 +11,7 @@ function [parameters_info, attributes_info, attributes_component, xyz] = loadLum
 % In matrixdataset, you can have a parameter called 'x', etc.
 % In rectilineardataset, if you name a parameter 'x', it will be
 % transformed to 'x_2'
+% Zero parameters, zero attributes???
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % First dimension: rectilinear dataset x*y*z

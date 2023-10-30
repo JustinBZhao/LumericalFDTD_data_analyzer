@@ -53,6 +53,9 @@ classdef MatrixDataset < LumericalDataset
 
         function [xdata, ydata, zdata] = getPlot2DData(obj, parameter1_name, parameter2_name, attribute_name)
             % Get x,y and z data for 2D plot
+            if obj.num_parameters < 2
+                error("Can't call this method on a dataset that has less than 2 parameters!");
+            end
             para_value_list = cell(2, 2); % 2D, xdata & ydata
             [para_indexes, para_value_list] = ...
                 obj.iGenerateParametersSliceIndexAndData(para_value_list, parameter1_name, parameter2_name);
@@ -77,6 +80,9 @@ classdef MatrixDataset < LumericalDataset
 
         function [x, y, z, data] = getPlot3DData(obj, parameter1_name, parameter2_name, parameter3_name, attribute_name)
             % Get x,y,z and data for 3D plot
+            if obj.num_parameters < 3
+                error("Can't call this method on a dataset that has less than 3 parameters!");
+            end
             para_value_list = cell(3, 2); % 3D, x,y,z
             [para_indexes, para_value_list] = ...
                 obj.iGenerateParametersSliceIndexAndData(para_value_list, parameter1_name, parameter2_name, parameter3_name);
