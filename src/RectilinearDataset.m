@@ -25,9 +25,10 @@ classdef RectilinearDataset < LumericalDataset
             % Also print x,y,z information
             fprintf("This dataset is a rectilinear dataset.\n");
             showInformation@LumericalDataset(obj);
-            fprintf('x: [%.2e, %.2e], %d points\n', min(obj.x), max(obj.x), length(obj.x));
-            fprintf('y: [%.2e, %.2e], %d points\n', min(obj.y), max(obj.y), length(obj.y));
-            fprintf('z: [%.2e, %.2e], %d points\n', min(obj.z), max(obj.z), length(obj.z));
+            fprintf("Coordinate parameters:\n");
+            fprintf('x: %d points\n', length(obj.x));
+            fprintf('y: %d points\n', length(obj.y));
+            fprintf('z: %d points\n', length(obj.z));
         end
 
         function obj = setParameterSliceIndex(obj, varargin)
