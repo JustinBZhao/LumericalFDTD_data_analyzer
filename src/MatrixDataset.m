@@ -10,6 +10,12 @@ classdef MatrixDataset < LumericalDataset
             obj = obj@LumericalDataset(lum_dataset);
         end
 
+        function showInformation(obj)
+            % Print one additional line
+            fprintf("This dataset is a matrix dataset.\n");
+            showInformation@LumericalDataset(obj);
+        end
+
         function obj = setParameterSliceIndex(obj, varargin)
             % Set slice index of one or more parameters (specified as
             % name-value pair)
