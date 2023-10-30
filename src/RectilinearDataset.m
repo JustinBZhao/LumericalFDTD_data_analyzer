@@ -141,6 +141,14 @@ classdef RectilinearDataset < LumericalDataset
             data = permute(data, rank); % rearrange based on params ranking
             data = permute(data, [2, 1, 3]); % swap x,y dimensions
         end
+
+        function new_obj = removeDimensions(obj, varargin)
+            % Remove some dimensions (parameters) of the dataset
+
+            % Still need to use an interface similar to
+            % iGenerateParametersSliceIndexAndData, however, this function
+            % is for "slicing" and we are doing the opposite
+        end
     end
 
     methods (Access = private)

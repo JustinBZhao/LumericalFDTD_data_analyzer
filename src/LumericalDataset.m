@@ -172,6 +172,7 @@ classdef (Abstract) LumericalDataset < matlab.mixin.Copyable
         [xdata, ydata] = getPlot1DData(obj, parameter_name, attribute_name);
         [xdata, ydata, zdata] = getPlot2DData(obj, parameter1_name, parameter2_name, attribute_name);
         [x, y, z, data] = getPlot3DData(obj, parameter1_name, parameter2_name, parameter3_name, attribute_name);
+        new_obj = removeDimensions(obj, varargin);
     end
 
     methods (Access = protected)
@@ -201,21 +202,37 @@ classdef (Abstract) LumericalDataset < matlab.mixin.Copyable
             end
         end
 
-        function [para_indexes, para_value_list] = ...
+        function [para_slice_indexes, para_value_list, para_keep_indexes] = ...
                 iGenerateParametersSliceIndexAndData(obj, para_value_list, varargin)
+            % Generate index list that slices off passed in parameters
+            % (para_slice_indexes), or index list that only keeps passed in
+            % parameters (para_keep_indexes), and update the information of
+            % the parameters passed in (para_value_list).
             % Certain elements in varargin can be empty, meaning that it
-            % has already been parsed in the last step.
+            % has already been parsed in the last step. In this case, the
+            % corresponding element in para_value_list should already have
+            % a value.
+            % ---para_value_list---
+            % First column: actual data for the parameter
+            % Second column: the number of the parameter (1:num_parameters)
             try
-                para_indexes = num2cell(obj.parameters_indexes);
+                para_slice_indexes = num2cell(obj.parameters_indexes);
                 for i = 1:length(varargin)
                     if isempty(varargin{i}) % already parsed
                         continue;
                     end
                     para_loc = obj.iCheckAndFindParameter(varargin{i});
-                    para_indexes{para_loc(1)} = ':';
+                    para_slice_indexes{para_loc(1)} = ':';
                     % Extract found parameter data
                     para_value_list{i, 1} = obj.parameters{para_loc(1), 2}(:, para_loc(2));
                     para_value_list{i, 2} = para_loc(1);
+                end
+
+                para_keep_indexes = num2cell(obj.parameters_indexes);
+                for i = 1:length(para_slice_indexes)
+                    if isnumeric(para_slice_indexes{i})
+                        para_keep_indexes{i} = ':';
+                    end
                 end
             catch ME
                 throwAsCaller(ME)
