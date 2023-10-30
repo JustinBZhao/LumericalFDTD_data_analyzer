@@ -55,11 +55,31 @@ classdef (Abstract) LumericalDataset < matlab.mixin.Copyable
         end
 
         function showInformation(obj)
-            % Show attributes and parameters
-            disp("Attributes:");
-            disp(fieldnames(obj.attributes));
-            disp("Parameters:");
-            disp(obj.parameters(:, 1));
+            % Display the information for an overview of this dataset
+            % Print attributes information
+            fprintf("%d attributes:\n", obj.num_attributes);
+            attributes_fields = fieldnames(obj.attributes);
+            max_str_length = max(cellfun(@length, attributes_fields)); % max name length
+            for i = 1:obj.num_attributes
+                field = attributes_fields{i};
+                if isnan(obj.attributes_component.(field)) % scalar or vector
+                    type = "scalar";
+                else
+                    type = "vector";
+                end
+                fprintf("%-*s | %s\n", max_str_length, field, type); % attribute names and types
+            end
+            fprintf("%d parameters:\n", obj.num_parameters);
+            % Print parameters information
+            params = obj.parameters(:, 1);
+            max_digits = max(cellfun(@(x) length(num2str(x)), obj.parameters(:, 3))); % max number of points length
+            for i = 1:obj.num_parameters
+                fprintf("%*d points | ", max_digits, obj.parameters{i, 3}); % number of points
+                for param = params{i} % independent parameter names
+                    fprintf("%s ", param);
+                end
+                fprintf('\n');
+            end
         end
 
         function result = getParameterData(obj, parameter_name) % non-virtual

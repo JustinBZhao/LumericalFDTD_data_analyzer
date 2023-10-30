@@ -33,13 +33,13 @@ validateFieldInStruct(lum_dataset.Lumerical_dataset, 'parameters', "Field 'Lumer
 % Decide between matrixdataset or rectilineardataset ('geometry' field)
 if isfield(lum_dataset.Lumerical_dataset, 'geometry')
     dataset_type = 'rectilinear';
-    disp("This data set is a rectilinear dataset!");
+    disp("Converted a rectilinear dataset!");
     if lum_dataset.Lumerical_dataset.geometry ~= "rectilinear"
         error("Wrong label in 'lum_dataset.geometry' for the rectilinear dataset!");
     end
 else
     dataset_type = 'matrix';
-    disp("This dataset is a matrix dataset!");
+    disp("Converted a matrix dataset!");
 end
 
 % If it is rectilinear, load x,y,z and organize them
