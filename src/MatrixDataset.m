@@ -111,7 +111,33 @@ classdef MatrixDataset < LumericalDataset
 
         function new_obj = removeDimensions(obj, varargin)
             % Remove some dimensions (parameters) of the dataset
+            para_value_list = cell(nargin - 1, 2); % nargin includes obj
+            [~, para_value_list, para_keep_indexes] = obj.iGenerateParametersSliceIndexAndData(para_value_list, varargin{:});
 
+            new_obj = obj.copy();
+
+            % Adjust attributes
+            attributes_fields = fieldnames(obj.attributes);
+            
+            for i = 1:obj.num_attributes
+                field = attributes_fields{i};
+                attribute_data = new_obj.attributes.(field);
+                %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+                %%%%%%% This is dumb implementation of removing dimension
+                sz = size(attribute_data); % get the size before trimming
+                attribute_data = attribute_data(:, :, para_keep_indexes{:});
+                
+            sz(cell2mat(para_value_list(:, 2)) + 2) = [];
+                attribute_data = reshape(attribute_data, sz);
+                new_obj.attributes.(field) = attribute_data;
+            end
+
+            % Remove parameters
+            new_obj.parameters(cell2mat(para_value_list(:, 2)), :) = [];
+            % Update parameters_indexes
+            new_obj.parameters_indexes(cell2mat(para_value_list(:, 2))) = [];
+            % Update num_parameters
+            new_obj.num_parameters = new_obj.num_parameters - (nargin - 1);
         end
     end
 end
