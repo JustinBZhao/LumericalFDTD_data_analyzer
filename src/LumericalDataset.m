@@ -202,11 +202,11 @@ classdef (Abstract) LumericalDataset < matlab.mixin.Copyable
             end
         end
 
-        function [para_slice_indexes, para_value_list, para_keep_indexes] = ...
+        function [para_slice_indexes, para_value_list, para_remove_indexes] = ...
                 iGenerateParametersSliceIndexAndData(obj, para_value_list, varargin)
-            % Generate index list that slices off passed in parameters
-            % (para_slice_indexes), or index list that only keeps passed in
-            % parameters (para_keep_indexes), and update the information of
+            % Generate index list that only keep passed in parameters
+            % (para_slice_indexes), or index list that only removes passed in
+            % parameters (para_remove_indexes), and update the information of
             % the parameters passed in (para_value_list).
             % Certain elements in varargin can be empty, meaning that it
             % has already been parsed in the last step. In this case, the
@@ -228,10 +228,10 @@ classdef (Abstract) LumericalDataset < matlab.mixin.Copyable
                     para_value_list{i, 2} = para_loc(1);
                 end
 
-                para_keep_indexes = num2cell(obj.parameters_indexes);
+                para_remove_indexes = num2cell(obj.parameters_indexes);
                 for i = 1:length(para_slice_indexes)
                     if isnumeric(para_slice_indexes{i})
-                        para_keep_indexes{i} = ':';
+                        para_remove_indexes{i} = ':';
                     end
                 end
             catch ME
