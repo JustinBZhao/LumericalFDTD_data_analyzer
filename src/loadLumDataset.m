@@ -52,9 +52,18 @@ if isequal(dataset_type, 'rectilinear')
     validateFieldInStruct(lum_dataset, 'z', "No z field in the rectilinear dataset!");
 
     % Load x,y,z to xyz and remove those field from the dataset
-    xyz.x = lum_dataset.x;
-    xyz.y = lum_dataset.y;
-    xyz.z = lum_dataset.z;
+    if ~(isnumeric(lum_dataset.x) && isvector(lum_dataset.x))
+        error("Parameter x must be a numeric vector!");
+    end
+    if ~(isnumeric(lum_dataset.y) && isvector(lum_dataset.y))
+        error("Parameter y must be a numeric vector!");
+    end
+    if ~(isnumeric(lum_dataset.z) && isvector(lum_dataset.z))
+        error("Parameter z must be a numeric vector!");
+    end
+    xyz.x = lum_dataset.x(:); % convert to column vector
+    xyz.y = lum_dataset.y(:);
+    xyz.z = lum_dataset.z(:);
     xyz.size = [length(lum_dataset.x), length(lum_dataset.y), length(lum_dataset.z)];
     % Remove x,y,z field from the dataset. This ensures that if other
     % parameters have these names, an error will be issued when we try to
