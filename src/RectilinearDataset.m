@@ -151,6 +151,10 @@ classdef RectilinearDataset < LumericalDataset
                 obj.iGenerateAxesSliceIndexAndData(para_value_list, varargin{:});
             [~, para_value_list, para_remove_indexes] = obj.iGenerateParametersSliceIndexAndData(para_value_list, arglist{:});
 
+            params_axes = cell2mat(para_value_list(:, 2));
+            param_idx = params_axes(params_axes > 0);
+            axes_idx = params_axes(params_axes < 0);
+
             new_obj = obj.copy();
 
             % Adjust attributes
@@ -163,25 +167,45 @@ classdef RectilinearDataset < LumericalDataset
                 % Expand first index into x,y,z
                 sz = size(attribute_data); % this is a different sz only used on the next line
                 attribute_data = reshape(attribute_data, [length(obj.x), length(obj.y), length(obj.z), sz(2:end)]);
-                sz = size(attribute_data);% get the size after xyz reshape, before trimming
+                sz = size(attribute_data); % get the size after xyz reshape, before trimming
                 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
                 %%%%%%% This is dumb implementation of removing dimension
                 attribute_data = attribute_data(axes_remove_indexes{:}, :, para_remove_indexes{:});
-
-                sz(cell2mat(para_value_list(:, 2)) + 4) = [];
-                attribute_data = reshape(attribute_data, sz);
+                % Should not squeeze (would remove other)
+                sz(param_idx + 4) = [];
+                sz(axes_idx + 4) = 1;
+                sz2 = sz(3:end);
+                sz2(1) = sz(1)*sz(2)*sz(3);
+                attribute_data = reshape(attribute_data, sz2);
                 new_obj.attributes.(field) = attribute_data;
             end
 
             %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-            %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-            % Still not correct
-            % % Remove parameters
-            % new_obj.parameters(cell2mat(para_value_list(:, 2)), :) = [];
-            % % Update parameters_indexes
-            % new_obj.parameters_indexes(cell2mat(para_value_list(:, 2))) = [];
-            % % Update num_parameters
-            % new_obj.num_parameters = new_obj.num_parameters - (nargin - 1);
+            % Stupid implementation
+            
+            % Remove x,y or z
+            for i = 1:length(axes_idx)
+                switch axes_idx(i)
+                    case -3
+                        new_obj.x = obj.x(obj.axes_indexes(1));
+                    case -2
+                        new_obj.y = obj.y(obj.axes_indexes(2));
+                    case -1
+                        new_obj.z = obj.z(obj.axes_indexes(3));
+                end
+            end
+            % Reset axes_indexes
+            new_obj.axes_indexes(axes_idx + 4) = [];
+
+            % Remove parameters
+            new_obj.parameters(param_idx, :) = [];
+            % Update parameters_indexes
+            new_obj.parameters_indexes(param_idx) = [];
+            % Update num_parameters
+            new_obj.num_parameters = new_obj.num_parameters - length(param_idx);
+
+            
+            
         end
     end
 
