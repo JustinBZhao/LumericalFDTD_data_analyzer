@@ -60,9 +60,9 @@ classdef RectilinearDataset < LumericalDataset
             % Get x and y data for 1D plot
             para_value_list = cell(1, 2); % 1D, xdata
             % First check if they are x, y or z
-            [arglist, axes_indexes, para_value_list] = ...
+            [arglist, axes_keep_indexes, para_value_list] = ...
                 obj.iGenerateAxesSliceIndexAndData(para_value_list, parameter_name);
-            [para_indexes, para_value_list] = ...
+            [para_slice_indexes, para_value_list] = ...
                 obj.iGenerateParametersSliceIndexAndData(para_value_list, arglist{:});
             xdata = para_value_list{1, 1};
 
@@ -72,17 +72,17 @@ classdef RectilinearDataset < LumericalDataset
             % Expand first index into x,y,z
             sz = size(attribute_data);
             attribute_data = reshape(attribute_data, [length(obj.x), length(obj.y), length(obj.z), sz(2:end)]);
-            
-            ydata = squeeze(attribute_data(axes_indexes{:}, 1, para_indexes{:}));
+
+            ydata = squeeze(attribute_data(axes_keep_indexes{:}, :, para_slice_indexes{:}));
         end
 
         function [xdata, ydata, zdata] = getPlot2DData(obj, parameter1_name, parameter2_name, attribute_name)
             % Get x,y and z data for 2D plot
             para_value_list = cell(2, 2); % 2D, xdata & ydata
             % First check if they are x, y or z
-            [arglist, axes_indexes, para_value_list] = ...
+            [arglist, axes_keep_indexes, para_value_list] = ...
                 obj.iGenerateAxesSliceIndexAndData(para_value_list, parameter1_name, parameter2_name);
-            [para_indexes, para_value_list] = ...
+            [para_slice_indexes, para_value_list] = ...
                 obj.iGenerateParametersSliceIndexAndData(para_value_list, arglist{:});
             xdata = para_value_list{1, 1};
             ydata = para_value_list{2, 1};
@@ -94,7 +94,7 @@ classdef RectilinearDataset < LumericalDataset
             sz = size(attribute_data);
             attribute_data = reshape(attribute_data, [length(obj.x), length(obj.y), length(obj.z), sz(2:end)]);
 
-            zdata = squeeze(attribute_data(axes_indexes{:}, 1, para_indexes{:}));
+            zdata = squeeze(attribute_data(axes_keep_indexes{:}, :, para_slice_indexes{:}));
 
             % Check for interdependent parameters and rearrange zdata based
             % on the order of parameters
@@ -111,9 +111,9 @@ classdef RectilinearDataset < LumericalDataset
             % Get x,y,z and data for 3D plot
             para_value_list = cell(3, 2); % 3D, x,y,z
             % First check if they are x, y or z
-            [arglist, axes_indexes, para_value_list] = ...
+            [arglist, axes_keep_indexes, para_value_list] = ...
                 obj.iGenerateAxesSliceIndexAndData(para_value_list, parameter1_name, parameter2_name, parameter3_name);
-            [para_indexes, para_value_list] = ...
+            [para_slice_indexes, para_value_list] = ...
                 obj.iGenerateParametersSliceIndexAndData(para_value_list, arglist{:});
             x = para_value_list{1, 1};
             y = para_value_list{2, 1};
@@ -126,7 +126,7 @@ classdef RectilinearDataset < LumericalDataset
             sz = size(attribute_data);
             attribute_data = reshape(attribute_data, [length(obj.x), length(obj.y), length(obj.z), sz(2:end)]);
 
-            data = squeeze(attribute_data(axes_indexes{:}, 1, para_indexes{:}));
+            data = squeeze(attribute_data(axes_keep_indexes{:}, :, para_slice_indexes{:}));
 
             % Check for interdependent parameters and rearrange data based
             % on the order of parameters
@@ -135,11 +135,77 @@ classdef RectilinearDataset < LumericalDataset
                     para_value_list{1, 2} == para_value_list{3, 2})
                 error("Can't plot against two interdependent parameters!");
             end
-  
+
             [~, order] = sort(cell2mat(para_value_list(:, 2)));
             [~, rank] = sort(order); % sort twice to get params ranking
             data = permute(data, rank); % rearrange based on params ranking
             data = permute(data, [2, 1, 3]); % swap x,y dimensions
+        end
+
+        function new_obj = removeDimensions(obj, varargin)
+            % Remove some dimensions (parameters or x,y,z) of the dataset
+            % When removing x,y,z, reset them to be length of 1
+            para_value_list = cell(nargin - 1, 2); % nargin includes obj
+            % First check if they are x, y or z
+            [arglist, ~, para_value_list, axes_remove_indexes] = ...
+                obj.iGenerateAxesSliceIndexAndData(para_value_list, varargin{:});
+            [~, para_value_list, para_remove_indexes] = obj.iGenerateParametersSliceIndexAndData(para_value_list, arglist{:});
+
+            params_axes = cell2mat(para_value_list(:, 2));
+            param_idx = params_axes(params_axes > 0);
+            axes_idx = params_axes(params_axes < 0);
+
+            new_obj = obj.copy();
+
+            % Adjust attributes
+            attributes_fields = fieldnames(obj.attributes);
+
+            for i = 1:obj.num_attributes
+                field = attributes_fields{i};
+                attribute_data = new_obj.attributes.(field);
+
+                % Expand first index into x,y,z
+                sz = size(attribute_data); % this is a different sz only used on the next line
+                attribute_data = reshape(attribute_data, [length(obj.x), length(obj.y), length(obj.z), sz(2:end)]);
+                sz = size(attribute_data); % get the size after xyz reshape, before trimming
+                %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+                %%%%%%% This is dumb implementation of removing dimension
+                attribute_data = attribute_data(axes_remove_indexes{:}, :, para_remove_indexes{:});
+                % Should not squeeze (would remove other)
+                sz(param_idx + 4) = [];
+                sz(axes_idx + 4) = 1;
+                sz2 = sz(3:end);
+                sz2(1) = sz(1)*sz(2)*sz(3);
+                attribute_data = reshape(attribute_data, sz2);
+                new_obj.attributes.(field) = attribute_data;
+            end
+
+            %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+            % Stupid implementation
+            
+            % Remove x,y or z
+            for i = 1:length(axes_idx)
+                switch axes_idx(i)
+                    case -3
+                        new_obj.x = obj.x(obj.axes_indexes(1));
+                    case -2
+                        new_obj.y = obj.y(obj.axes_indexes(2));
+                    case -1
+                        new_obj.z = obj.z(obj.axes_indexes(3));
+                end
+            end
+            % Reset axes_indexes
+            new_obj.axes_indexes(axes_idx + 4) = [];
+
+            % Remove parameters
+            new_obj.parameters(param_idx, :) = [];
+            % Update parameters_indexes
+            new_obj.parameters_indexes(param_idx) = [];
+            % Update num_parameters
+            new_obj.num_parameters = new_obj.num_parameters - length(param_idx);
+
+            
+            
         end
     end
 
@@ -162,30 +228,41 @@ classdef RectilinearDataset < LumericalDataset
             end
         end
 
-        function [arglist, axes_indexes, para_value_list] = ...
-            iGenerateAxesSliceIndexAndData(obj, para_value_list, varargin)
-            axes_indexes = num2cell(obj.axes_indexes);
+        function [arglist, axes_keep_indexes, para_value_list, axes_remove_indexes] = ...
+                iGenerateAxesSliceIndexAndData(obj, para_value_list, varargin)
+            % Parse axes parameters input and generate results
+            % axes_keep_indexes: mentioned axes to keep (':')
+            % axes_remove_indexes: mentioned axes to be removed (slice off)
+            axes_keep_indexes = num2cell(obj.axes_indexes);
             for i = 1:length(varargin)
                 parameter_name = varargin{i};
                 if parameter_name == "x"
-                    axes_indexes{1} = ':';
+                    axes_keep_indexes{1} = ':';
                     para_value_list{i, 1} = obj.x;
                     para_value_list{i, 2} = -3;
                     varargin{i} = [];
                 elseif parameter_name == "y"
-                    axes_indexes{2} = ':';
+                    axes_keep_indexes{2} = ':';
                     para_value_list{i} = obj.y;
                     para_value_list{i, 2} = -2;
                     varargin{i} = [];
                 elseif parameter_name == "z"
-                    axes_indexes{3} = ':';
+                    axes_keep_indexes{3} = ':';
                     para_value_list{i} = obj.z;
                     para_value_list{i, 2} = -1;
                     varargin{i} = [];
                 end
             end
 
+            % Get axes_remove_indexes from axes_keep_indexes
+            axes_remove_indexes = num2cell(obj.axes_indexes);
+            for i = 1:3
+                if isnumeric(axes_keep_indexes{i})
+                    axes_remove_indexes{i} = ':';
+                end
+            end
+
             arglist = varargin;
+        end
     end
-end
 end

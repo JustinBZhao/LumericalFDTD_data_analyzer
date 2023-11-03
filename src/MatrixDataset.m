@@ -41,14 +41,14 @@ classdef MatrixDataset < LumericalDataset
         function [xdata, ydata] = getPlot1DData(obj, parameter_name, attribute_name)
             % Get x and y data for 1D plot
             para_value_list = cell(1, 2); % 1D, xdata
-            [para_indexes, para_value_list] = ...
+            [para_slice_indexes, para_value_list] = ...
                 obj.iGenerateParametersSliceIndexAndData(para_value_list, parameter_name);
             xdata = para_value_list{1, 1};
 
             obj.iCheckAttributeExist(attribute_name);
             attribute_data = obj.attributes.(attribute_name);
             ydata = LumericalDataset.sliceThroughAttributeVectorDim(attribute_data, obj.attributes_component.(attribute_name));
-            ydata = squeeze(ydata(:, :, para_indexes{:}));
+            ydata = squeeze(ydata(:, :, para_slice_indexes{:}));
         end
 
         function [xdata, ydata, zdata] = getPlot2DData(obj, parameter1_name, parameter2_name, attribute_name)
@@ -57,7 +57,7 @@ classdef MatrixDataset < LumericalDataset
                 error("Can't call this method on a dataset that has less than 2 parameters!");
             end
             para_value_list = cell(2, 2); % 2D, xdata & ydata
-            [para_indexes, para_value_list] = ...
+            [para_slice_indexes, para_value_list] = ...
                 obj.iGenerateParametersSliceIndexAndData(para_value_list, parameter1_name, parameter2_name);
             xdata = para_value_list{1, 1};
             ydata = para_value_list{2, 1};
@@ -65,7 +65,7 @@ classdef MatrixDataset < LumericalDataset
             obj.iCheckAttributeExist(attribute_name);
             attribute_data = obj.attributes.(attribute_name);
             zdata = LumericalDataset.sliceThroughAttributeVectorDim(attribute_data, obj.attributes_component.(attribute_name));
-            zdata = squeeze(zdata(:, :, para_indexes{:}));
+            zdata = squeeze(zdata(:, :, para_slice_indexes{:}));
 
             % Check for interdependent parameters and rearrange zdata based
             % on the order of parameters
@@ -84,7 +84,7 @@ classdef MatrixDataset < LumericalDataset
                 error("Can't call this method on a dataset that has less than 3 parameters!");
             end
             para_value_list = cell(3, 2); % 3D, x,y,z
-            [para_indexes, para_value_list] = ...
+            [para_slice_indexes, para_value_list] = ...
                 obj.iGenerateParametersSliceIndexAndData(para_value_list, parameter1_name, parameter2_name, parameter3_name);
             x = para_value_list{1, 1};
             y = para_value_list{2, 1};
@@ -93,7 +93,7 @@ classdef MatrixDataset < LumericalDataset
             obj.iCheckAttributeExist(attribute_name);
             attribute_data = obj.attributes.(attribute_name);
             data = LumericalDataset.sliceThroughAttributeVectorDim(attribute_data, obj.attributes_component.(attribute_name));
-            data = squeeze(data(:, :, para_indexes{:}));
+            data = squeeze(data(:, :, para_slice_indexes{:}));
 
             % Check for interdependent parameters and rearrange data based
             % on the order of parameters
@@ -102,11 +102,42 @@ classdef MatrixDataset < LumericalDataset
                     para_value_list{1, 2} == para_value_list{3, 2})
                 error("Can't plot against two interdependent parameters!");
             end
-  
+
             [~, order] = sort(cell2mat(para_value_list(:, 2)));
             [~, rank] = sort(order); % sort twice to get params ranking
             data = permute(data, rank); % rearrange based on params ranking
             data = permute(data, [2, 1, 3]); % swap x,y dimensions
+        end
+
+        function new_obj = removeDimensions(obj, varargin)
+            % Remove some dimensions (parameters) of the dataset
+            para_value_list = cell(nargin - 1, 2); % nargin includes obj
+            [~, para_value_list, para_remove_indexes] = obj.iGenerateParametersSliceIndexAndData(para_value_list, varargin{:});
+
+            new_obj = obj.copy();
+
+            % Adjust attributes
+            attributes_fields = fieldnames(obj.attributes);
+
+            for i = 1:obj.num_attributes
+                field = attributes_fields{i};
+                attribute_data = new_obj.attributes.(field);
+                %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+                %%%%%%% This is dumb implementation of removing dimension
+                sz = size(attribute_data); % get the size before trimming
+                attribute_data = attribute_data(:, :, para_remove_indexes{:});
+
+                sz(cell2mat(para_value_list(:, 2)) + 2) = [];
+                attribute_data = reshape(attribute_data, sz);
+                new_obj.attributes.(field) = attribute_data;
+            end
+
+            % Remove parameters
+            new_obj.parameters(cell2mat(para_value_list(:, 2)), :) = [];
+            % Update parameters_indexes
+            new_obj.parameters_indexes(cell2mat(para_value_list(:, 2))) = [];
+            % Update num_parameters
+            new_obj.num_parameters = new_obj.num_parameters - (nargin - 1);
         end
     end
 end
