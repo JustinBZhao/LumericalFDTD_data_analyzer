@@ -195,7 +195,7 @@ classdef RectilinearDataset < LumericalDataset
                 end
             end
             % Reset axes_indexes
-            new_obj.axes_indexes(axes_idx + 4) = [];
+            new_obj.axes_indexes(axes_idx + 4) = 1; % set sliced axis index to 1
 
             % Remove parameters
             new_obj.parameters(param_idx, :) = [];
@@ -203,9 +203,6 @@ classdef RectilinearDataset < LumericalDataset
             new_obj.parameters_indexes(param_idx) = [];
             % Update num_parameters
             new_obj.num_parameters = new_obj.num_parameters - length(param_idx);
-
-            
-            
         end
     end
 
@@ -236,17 +233,17 @@ classdef RectilinearDataset < LumericalDataset
             axes_keep_indexes = num2cell(obj.axes_indexes);
             for i = 1:length(varargin)
                 parameter_name = varargin{i};
-                if parameter_name == "x"
+                if isequal(parameter_name, "x") % parameter_name might not be text
                     axes_keep_indexes{1} = ':';
                     para_value_list{i, 1} = obj.x;
                     para_value_list{i, 2} = -3;
                     varargin{i} = [];
-                elseif parameter_name == "y"
+                elseif isequal(parameter_name, "y")
                     axes_keep_indexes{2} = ':';
                     para_value_list{i} = obj.y;
                     para_value_list{i, 2} = -2;
                     varargin{i} = [];
-                elseif parameter_name == "z"
+                elseif isequal(parameter_name, "z")
                     axes_keep_indexes{3} = ':';
                     para_value_list{i} = obj.z;
                     para_value_list{i, 2} = -1;
