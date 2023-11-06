@@ -139,5 +139,9 @@ classdef MatrixDataset < LumericalDataset
             % Update num_parameters
             new_obj.num_parameters = new_obj.num_parameters - (nargin - 1);
         end
+
+        function new_obj = mergeDataset(obj, parameter_name)
+            %
+        end
     end
 end

@@ -173,6 +173,7 @@ classdef (Abstract) LumericalDataset < matlab.mixin.Copyable
         [xdata, ydata, zdata] = getPlot2DData(obj, parameter1_name, parameter2_name, attribute_name);
         [x, y, z, data] = getPlot3DData(obj, parameter1_name, parameter2_name, parameter3_name, attribute_name);
         new_obj = removeDimensions(obj, varargin);
+        new_obj = mergeDataset(obj, parameter_name);
     end
 
     methods (Access = protected)
