@@ -12,18 +12,20 @@ function [parameters_info, attributes_info, attributes_component, xyz] = loadLum
 % In rectilineardataset, if you name a parameter 'x', it will be
 % transformed to 'x_2'
 % Zero parameters, zero attributes???
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% values can be complex (parameters, xyz)
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % First dimension: rectilinear dataset x*y*z
 % Second dimension: if vector, 3
 % Remaining dimensions: parameters
 
-% Input dataset has to be a scalar
-validateStructScalar(lum_dataset, "Input dataset must be a struct!");
+% Input dataset has to be a struct scalar
+validateStructScalar(lum_dataset, "Input dataset must be a struct scalar!");
 
 % Check field: Lumerical_dataset
 validateFieldInStruct(lum_dataset, 'Lumerical_dataset', "Input dataset does not have the field 'Lumerical_dataset'!");
-validateStructScalar(lum_dataset.Lumerical_dataset, "Field 'Lumerical_dataset' is not a struct!");
+validateStructScalar(lum_dataset.Lumerical_dataset, "Field 'Lumerical_dataset' is not a struct scalar!");
 % Check 'attribute' field
 validateFieldInStruct(lum_dataset.Lumerical_dataset, 'attributes', "Field 'Lumerical_dataset' does not have the 'attributes' subfield!");
 % check the contents in 'attributes' later
@@ -35,7 +37,7 @@ validateFieldInStruct(lum_dataset.Lumerical_dataset, 'parameters', "Field 'Lumer
 if isfield(lum_dataset.Lumerical_dataset, 'geometry')
     dataset_type = 'rectilinear';
     disp("Converted a rectilinear dataset!");
-    if lum_dataset.Lumerical_dataset.geometry ~= "rectilinear"
+    if ~isequal(lum_dataset.Lumerical_dataset.geometry, "rectilinear")
         error("Wrong label in 'lum_dataset.geometry' for the rectilinear dataset!");
     end
 else
@@ -47,23 +49,26 @@ end
 xyz = struct;
 if isequal(dataset_type, 'rectilinear')
     % Check if x, y and z data exist in the dataset
-    validateFieldInStruct(lum_dataset, 'x', "No x field in the rectilinear dataset!");
-    validateFieldInStruct(lum_dataset, 'y', "No y field in the rectilinear dataset!");
-    validateFieldInStruct(lum_dataset, 'z', "No z field in the rectilinear dataset!");
+    validateFieldInStruct(lum_dataset, 'x', "No x data in the rectilinear dataset!");
+    validateFieldInStruct(lum_dataset, 'y', "No y data in the rectilinear dataset!");
+    validateFieldInStruct(lum_dataset, 'z', "No z data in the rectilinear dataset!");
 
     % Load x,y,z to xyz and remove those field from the dataset
-    if ~(isnumeric(lum_dataset.x) && isvector(lum_dataset.x))
-        error("Parameter x must be a numeric vector!");
+    % Check x,y,z data.
+    for axis = 'xyz'
+        if ~isnumeric(lum_dataset.(axis))
+            error(axis + " data must be a numeric vector!");
+        end
+        if ~isvector(lum_dataset.(axis)) % 2+ dimensional matrix?
+            warning("Parameter " + axis + " is multi-dimensional! Stretched to one dimension!");
+        end
+        if any(imag(lum_dataset.(axis))) % has imaginary part?
+            warning("Parameter " + axis + " is complex! Takes the real part and proceed.");
+        end
     end
-    if ~(isnumeric(lum_dataset.y) && isvector(lum_dataset.y))
-        error("Parameter y must be a numeric vector!");
-    end
-    if ~(isnumeric(lum_dataset.z) && isvector(lum_dataset.z))
-        error("Parameter z must be a numeric vector!");
-    end
-    xyz.x = lum_dataset.x(:); % convert to column vector
-    xyz.y = lum_dataset.y(:);
-    xyz.z = lum_dataset.z(:);
+    xyz.x = real(lum_dataset.x(:)); % (vectorize) convert to column vector
+    xyz.y = real(lum_dataset.y(:));
+    xyz.z = real(lum_dataset.z(:));
     xyz.size = [length(lum_dataset.x), length(lum_dataset.y), length(lum_dataset.z)];
     % Remove x,y,z field from the dataset. This ensures that if other
     % parameters have these names, an error will be issued when we try to
@@ -114,9 +119,11 @@ for i = 1:length(parameters)
         validateFieldInStruct(lum_dataset, interdep_parameter_name, ...
             "Parameter field '" + interdep_parameter_name + "' data not found!");
         value = lum_dataset.(interdep_parameter_name);
-        if ~isnumeric(value) || ~isvector(value) || isempty(value)
-            error("Parameter field '" + interdep_parameter_name + "' data is not a numeric vector!");
-        end
+        % parameter will always be non-empty N-by-1 column vector. Check that.
+        % In the check, can relax the condition to "non-empty vectors".
+        validateNonEmptyNumericVector(value, ...
+            "Parameter field '" + interdep_parameter_name + "' data is not a numeric vector!");
+        value = value(:); % convert to column vector, if applicable
         % Remove this field from the dataset, prevent duplicate names
         lum_dataset = rmfield(lum_dataset, interdep_parameter_name);
         % If parameter not monotonic increasing or decreasing, issue a
@@ -162,13 +169,13 @@ for i = 1:length(attributes)
         error("The " + i + "th attribute is not properly defined!");
     end
     if ~isequal(attribute.variable, attribute.name)
-                    warning("Attribute name '" + attribute.name + ...
-                "' contains illegal characters. Converted to '" + attribute.variable + "'.");
+        warning("Attribute name '" + attribute.name + ...
+            "' contains illegal characters. Converted to '" + attribute.variable + "'.");
     end
     validateFieldInStruct(lum_dataset, attribute.variable, "Attribute field '" + attribute.variable + "' not found!");
     attribute_value = lum_dataset.(attribute.variable);
-            %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-        % Check attribute value data type
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    % Check attribute value data type
     % Check first dimension: should correspond to dataset_type
     if isequal(dataset_type, 'rectilinear')
         if size(attribute_value, 1) ~= prod(xyz.size)
@@ -223,6 +230,13 @@ end
 
 function validateFieldInStruct(struct_in, field_in, errmsg)
 if ~isfield(struct_in, field_in)
+    throwAsCaller(MException('', errmsg));
+end
+end
+
+function validateNonEmptyNumericVector(input, errmsg)
+% Validate input as non-empty vector (N-by-1 or 1-by-N)
+if ~(isnumeric(input) && isvector(input) && ~isempty(input))
     throwAsCaller(MException('', errmsg));
 end
 end
