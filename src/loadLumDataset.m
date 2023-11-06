@@ -82,19 +82,19 @@ end
 % Load all parameters names and organize them
 % Will group interdependent parameters together
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% if rectilinear, the names cant be x, y, z
+% if rectilinear, the names can't be x, y, z
 % check parameter values
 
 parameters = lum_dataset.Lumerical_dataset.parameters;
-if ~iscell(parameters) || ~iscolumn(parameters)
-    error("Field 'Lumerical_dataset.parameters' does not have the correct format!");
+if ~(iscell(parameters) && iscolumn(parameters))
+    error("Field 'Lumerical_dataset.parameters' should be a cell column vector!");
 end
 parameters_info = cell(length(parameters), 3);
 for i = 1:length(parameters)
     parameter = parameters{i};
     % Check struct
-    if ~isstruct(parameter) || ~isfield(parameter, 'variable') || ~isfield(parameter, 'name')
-        error("The " + i + "th interdependent parameter set is not properly defined!");
+    if ~(isstruct(parameter) && isfield(parameter, 'variable') && isfield(parameter, 'name'))
+        error("The interdependent parameter set " + i + " is not properly defined!");
     end
 
     % Initialize variables
@@ -104,24 +104,24 @@ for i = 1:length(parameters)
 
     % Retrieve the interdependent parameter set
     for j = 1:length(parameter)
-        validateTextScalar(parameter(j).variable, "The " + i + "th interdependent parameter set is not properly defined!");
-        validateTextScalar(parameter(j).name, "The " + i + "th interdependent parameter set is not properly defined!");
+        validateTextScalar(parameter(j).variable, "The interdependent parameter set " + i + " is not properly defined!");
+        interdep_parameter_name = parameter(j).variable;
+        parameter_names(j) = interdep_parameter_name; % char array also works
+        validateTextScalar(parameter(j).name, "The interdependent parameter set " + i + " is not properly defined!");
         if ~isvarname(parameter(j).variable)
-            error("The " + i + "th interdependent parameter set is not properly defined!");
+            error("The interdependent parameter set " + i + " is not properly defined!");
         end
         % Illegal characters in the names are converted to '_'
         if ~isequal(parameter(j).variable, parameter(j).name)
             warning("Parameter name '" + parameter(j).name + ...
                 "' contains illegal characters. Converted to '" + parameter(j).variable + "'.");
         end
-        interdep_parameter_name = parameter(j).variable;
-        parameter_names(j) = interdep_parameter_name;
         validateFieldInStruct(lum_dataset, interdep_parameter_name, ...
             "Parameter field '" + interdep_parameter_name + "' data not found!");
         value = lum_dataset.(interdep_parameter_name);
         % parameter will always be non-empty N-by-1 column vector. Check that.
         % In the check, can relax the condition to "non-empty vectors".
-        validateNonEmptyNumericVector(value, ...
+        validateNonEmptyNumericVector(value, ... %% instead check iscolumn?
             "Parameter field '" + interdep_parameter_name + "' data is not a numeric vector!");
         value = value(:); % convert to column vector, if applicable
         % Remove this field from the dataset, prevent duplicate names

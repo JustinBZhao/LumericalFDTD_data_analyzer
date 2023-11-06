@@ -8,19 +8,56 @@ classdef TestLoadDataset < matlab.unittest.TestCase
 
     properties (TestParameter)
         dataset = loadTestParameter();
-        % Define a set of non-struct inputs
+
         non_struct_scalar = struct(...
             "char_array", 'a char array', ...
             "string", "a string", ...
             "string_array", ["string array 1", "string array 2"], ...
             "cell_array", {{1, 2, 'cell3'}}, ...
-            "logical", true, ...
             "numeric_array", [1, 2, 3], ...
-            "numeric_scalar", 15, ...
-            "numeric_muldim", rand(3, 5, 4), ...
-            "complex", 4 + 5i, ...
+            "struct_array", struct('field1', {1, 'char', "string"}, 'field2', {"string", 2, 'char'}) ...
+            );
+
+        non_geometry = struct(...
+            "wrong_word", "matrix", ...
+            "string_array", ["string array 1", "string array 2"], ...
+            "numeric_array", [1, 2, 3] ...
+            );
+
+        non_numeric = struct(...
+            "char_array", 'a char array', ...
+            "string", "a string", ...
+            "string_array", ["string array 1", "string array 2"], ...
+            "cell_array", {{1, 2, 'cell3'}}, ...
+            "logical", true, ...
+            "struct_scalar", struct('field1', 2, 'field2', "haha"), ...
             "anonymous_function", @(x) x, ...
-            "struct_vector", struct('field1', {1, 'char', "string"}, 'field2', {"string", 2, 'char'}) ...
+            "struct_array", struct('field1', {1, 'char', "string"}, 'field2', {"string", 2, 'char'}) ...
+            );
+
+        non_cell_column = struct(...
+            "cell_row", {{1, "a", 'xyz'}}, ...
+            "cell_matrix", {{1, "a"; [1, 2, 3], 'xyz'}}, ...
+            "struct_array", struct('field1', {1, 'char', "string"}, 'field2', {"string", 2, 'char'}) ...
+            );
+
+        non_struct = struct(...
+            "char_array", 'a char array', ...
+            "string", "a string", ...
+            "string_array", ["string array 1", "string array 2"], ...
+            "cell_array", {{1, 2, 'cell3'}}, ...
+            "numeric_array", [1, 2, 3] ...
+            );
+
+        non_text_scalar = struct(...
+            "string_array", ["string1", "string2"], ...
+            "char_array", {{'string1', 'string2'}} ...
+            );
+
+        non_var_name = struct(...
+            "leading_digit", "1name", ...
+            "space", "name 1", ...
+            "too_long", repmat('a', 1, 100) ...
             );
     end
 
@@ -64,32 +101,122 @@ classdef TestLoadDataset < matlab.unittest.TestCase
     end
 
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    % Category results hard to test, but can test throwing errors
+    % Category results (non-throwing) hard to test, but can test throwing errors
     methods (Test, TestTags = {'recti_special'})
-        function testDatasetClass(testCase)
+        function testDatasetClass(testCase, non_geometry)
             % Test wrong 'geometry' label
             ds_recti_ = testCase.ds_recti;
-            ds_recti_.Lumerical_dataset.geometry = 2; % only case we test
+            ds_recti_.Lumerical_dataset.geometry = non_geometry;
             testCase.verifyErrorMessage(@() loadLumDataset(ds_recti_), ...
                 'Wrong label in ''lum_dataset.geometry'' for the rectilinear dataset!');
         end
 
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        % May parameterize x,y,z
         function testMissingXYZ(testCase)
             % Test missing x,y,z field
             ds_recti_rm_x = rmfield(testCase.ds_recti, 'x');
             testCase.verifyErrorMessage(@() loadLumDataset(ds_recti_rm_x), ...
-                'No x field data in the rectilinear dataset!');
+                'No x data in the rectilinear dataset!');
             ds_recti_rm_y = rmfield(testCase.ds_recti, 'y');
             testCase.verifyErrorMessage(@() loadLumDataset(ds_recti_rm_y), ...
-                'No y field data in the rectilinear dataset!');
+                'No y data in the rectilinear dataset!');
             ds_recti_rm_z = rmfield(testCase.ds_recti, 'z');
             testCase.verifyErrorMessage(@() loadLumDataset(ds_recti_rm_z), ...
-                'No z field data in the rectilinear dataset!');
+                'No z data in the rectilinear dataset!');
+        end
+
+        function testBadXYZNonNumeric(testCase, non_numeric)
+            % Test bad x,y,z values: non-numeric
+            ds_recti_ = testCase.ds_recti;
+            ds_recti_.x = non_numeric;
+            testCase.verifyErrorMessage(@() loadLumDataset(ds_recti_), ...
+                'x data must be a numeric vector!');
+            ds_recti_ = testCase.ds_recti;
+            ds_recti_.y = non_numeric;
+            testCase.verifyErrorMessage(@() loadLumDataset(ds_recti_), ...
+                'y data must be a numeric vector!');
+            ds_recti_ = testCase.ds_recti;
+            ds_recti_.z = non_numeric;
+            testCase.verifyErrorMessage(@() loadLumDataset(ds_recti_), ...
+                'z data must be a numeric vector!');
+        end
+
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        % You cannot test a warning unless you can terminate the execution
+        % at the point of warning generation
+        function testBadXYZMuldim(testCase)
+            % Test bad x,y,z values: multi-dimensional matrix
+            % ds_recti_ = testCase.ds_recti;
+            % ds_recti_.x = rand(3, 5, 2);
+            % testCase.verifyWarning(@() loadLumDataset(ds_recti_), ...
+            %     'TestID');
+            testCase.verifyFail;
+        end
+
+        function testBadXYZImag(testCase)
+            % ds_recti_ = testCase.ds_recti;
+            % ds_recti_.x = complex(ds_recti_.x); %%%%%%%%%%%%% test??
+            testCase.verifyFail;
         end
     end
 
-    methods (Test, TestTags = {'3'})
-        % function 
+    methods (Test, TestTags = {'parameters'})
+        function testParametersType(testCase, dataset, non_cell_column)
+            % 'parameters' type cell, column vector
+            ds = dataset;
+            ds.Lumerical_dataset.parameters = non_cell_column;
+            testCase.verifyErrorMessage(@() loadLumDataset(ds), ...
+                'Field ''Lumerical_dataset.parameters'' should be a cell column vector!');
+        end
+
+        %%%%%%% Only test one parameter in MATRIX dataset
+        function testParameterContent1(testCase, non_struct)
+            % Test the cell in 'parameters' with correct format
+            ds_matrix_ = testCase.ds_matrix;
+            ds_matrix_.Lumerical_dataset.parameters{1} = non_struct;
+            testCase.verifyErrorMessage(@() loadLumDataset(ds_matrix_), ...
+                'The interdependent parameter set 1 is not properly defined!');
+        end
+
+        function testParameterContent2(testCase)
+            ds_matrix_ = testCase.ds_matrix;
+            ds_matrix_.Lumerical_dataset.parameters{1} = rmfield(ds_matrix_.Lumerical_dataset.parameters{1}, 'variable');
+            testCase.verifyErrorMessage(@() loadLumDataset(ds_matrix_), ...
+                'The interdependent parameter set 1 is not properly defined!');
+            ds_matrix_.Lumerical_dataset.parameters{1} = rmfield(ds_matrix_.Lumerical_dataset.parameters{1}, 'name');
+            testCase.verifyErrorMessage(@() loadLumDataset(ds_matrix_), ...
+                'The interdependent parameter set 1 is not properly defined!');
+        end
+
+        function testSingleParameterContent1(testCase, non_text_scalar)
+            % Test one interdependent parameter
+            ds_matrix_ = testCase.ds_matrix;
+            ds_matrix_.Lumerical_dataset.parameters{1}(1).variable = non_text_scalar;
+            testCase.verifyErrorMessage(@() loadLumDataset(ds_matrix_), ...
+                'The interdependent parameter set 1 is not properly defined!');
+        end
+
+        function testSingleParameterContent2(testCase, non_var_name)
+            ds_matrix_ = testCase.ds_matrix;
+            ds_matrix_.Lumerical_dataset.parameters{1}(1).variable = non_var_name;
+            testCase.verifyErrorMessage(@() loadLumDataset(ds_matrix_), ...
+                'The interdependent parameter set 1 is not properly defined!');
+        end
+
+        function testIllegalCharacters(testCase)
+            %%%%%%%%%%%%%%%%% Same warning problem
+            testCase.verifyFail;
+        end
+
+        function testParameterInDataset(testCase)
+            % Test parameter data exists
+            ds_matrix_ = testCase.ds_matrix;
+            parameter_name = ds_matrix_.Lumerical_dataset.parameters{1}(1).variable;
+            ds_matrix_rm = rmfield(ds_matrix_, parameter_name);
+            testCase.verifyErrorMessage(@() loadLumDataset(ds_matrix_rm), ...
+                ['Parameter field ''', parameter_name, ''' data not found!']);
+        end
     end
 
     methods (TestClassSetup)
