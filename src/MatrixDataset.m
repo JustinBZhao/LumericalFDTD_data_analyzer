@@ -140,8 +140,92 @@ classdef MatrixDataset < LumericalDataset
             new_obj.num_parameters = new_obj.num_parameters - (nargin - 1);
         end
 
-        function new_obj = mergeDataset(obj, parameter_name)
-            %
+        function new_obj = mergeDataset(obj, other_obj, parameter_name)
+            % Merge two datasets into one
+            % Other than the specified parameter name, every other
+            % parameter has to be exactly the same.
+
+            %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+            % Check everything else is the same.
+            % What if the parameter is interdependent?
+            % What if the parameter has overlap between objs?
+            % What if the parameter are not same monotonic direction?
+            % What will be the slicing (axis component) after merging?
+            para_loc = obj.iCheckAndFindParameter(parameter_name);
+
+            new_obj = obj.copy();
+
+            %%%%%%%%%%%%%% Interdep complication not considered
+            % Reverse monotonic decrease
+            if ~all(diff(obj.parameters{para_loc(1), 2}(:, 1), 1, 1) > 0)
+                obj_store = obj.parameters{para_loc(1), 2}(end:-1:1, :);
+                obj_wrong = true;
+            else
+                obj_store = obj.parameters{para_loc(1), 2};
+                obj_wrong = false;
+            end
+            if ~all(diff(other_obj.parameters{para_loc(1), 2}(:, 1), 1, 1) > 0)
+                other_obj_store = other_obj.parameters{para_loc(1), 2}(end:-1:1, :);
+                other_obj_wrong = true;
+            else
+                other_obj_store = other_obj.parameters{para_loc(1), 2};
+                other_obj_wrong = false;
+            end
+
+            %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+            % Temperary
+            % WHAT tolerance?
+            if abs(obj_store(end, 1) - other_obj_store(1, 1)) < 1e-18
+                if obj_store(1, 1) < 400e-9 || obj_store(end, 1) > 1500e-9
+                    cancel = -1;
+                    new_obj.parameters{para_loc(1), 2} = [obj_store(1:end-1, :); other_obj_store];
+                else
+                    cancel = 1;
+                    new_obj.parameters{para_loc(1), 2} = [obj_store; other_obj_store(2:end, :)];
+                end
+                new_obj.parameters{para_loc(1), 3} = obj.parameters{para_loc(1), 3} + other_obj.parameters{para_loc(1), 3} - 1;
+            else
+                cancel = 0;
+                new_obj.parameters{para_loc(1), 2} = [obj_store; other_obj_store];
+                new_obj.parameters{para_loc(1), 3} = obj.parameters{para_loc(1), 3} + other_obj.parameters{para_loc(1), 3};
+            end
+
+            % Adjust attributes
+            attributes_fields = fieldnames(obj.attributes);
+
+            % Also reverse monotonic decrease and THEN trim
+            for i = 1:obj.num_attributes
+                field = attributes_fields{i};
+                if obj_wrong
+                    obj_attri = flip(obj.attributes.(field), para_loc(1) + 2);
+                else
+                    obj_attri = obj.attributes.(field);
+                end
+                if other_obj_wrong
+                    other_obj_attri = flip(other_obj.attributes.(field), para_loc(1) + 2);
+                else
+                    other_obj_attri = other_obj.attributes.(field);
+                end
+
+                if cancel == -1
+                    % Remove last index along parameter dim
+                    dim = para_loc(1) + 2;
+                    idx = true(1, size(obj_attri, dim));
+                    idx(end) = false;
+                    subs = repmat({':'}, 1, ndims(obj_attri));
+                    subs{dim} = idx;
+                    obj_attri = obj_attri(subs{:});
+                elseif cancel == 1
+                    % Remove first index along parameter dim
+                    dim = para_loc(1) + 2;
+                    idx = true(1, size(other_obj_attri, dim));
+                    idx(1) = false;
+                    subs = repmat({':'}, 1, ndims(other_obj_attri));
+                    subs{dim} = idx;
+                    other_obj_attri = other_obj_attri(subs{:});
+                end
+                new_obj.attributes.(field) = cat(para_loc(1) + 2, obj_attri, other_obj_attri);
+            end
         end
     end
 end
