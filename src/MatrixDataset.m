@@ -184,12 +184,12 @@ classdef MatrixDataset < LumericalDataset
             if ~isequal(attribute_names, fieldnames(other_obj.attributes))
                 error("Unable to merge: two datasets do not have the same attribute sets!");
             end
-% Same type (scalar, vector) for each attribute
+            % Same type (scalar, vector) for each attribute
             % Shortcut: check attributes_component (both NaN or neither)
             for i = 1:length(attribute_names)
                 name = attribute_names{i};
                 if (isnan(obj.attributes_component.(name)) && ~isnan(other_obj.attributes_component.(name))) || ...
-                    (~isnan(obj.attributes_component.(name)) && isnan(other_obj.attributes_component.(name)))
+                        (~isnan(obj.attributes_component.(name)) && isnan(other_obj.attributes_component.(name)))
                     error("Unable to merge: at least one attribute in two datasets do not have the same type (scalar or vector)!");
                 end
             end
@@ -199,29 +199,39 @@ classdef MatrixDataset < LumericalDataset
             end
 
             % Parameter sizes: at most one can be different
-            diff = cell2mat(obj.parameters(:, 3)) - cell2mat(other_obj.parameters(:, 3));
-            if nnz(diff) == 0 % sizes all the same
+            diffe = cell2mat(obj.parameters(:, 3)) - cell2mat(other_obj.parameters(:, 3));
+            if nnz(diffe) == 0 % sizes all the same
                 % Need to have user specified parameter name
                 if p.Results.ParameterName == "" % not specified
-                error("Unable to merge: unable to deduce the parameter to merge!");
+                    error("Unable to merge: unable to deduce the parameter to merge!");
                 end
                 parameter_name = p.Results.ParameterName;
-            elseif nnz(diff) == 1 % one size different
+            elseif nnz(diffe) == 1 % one size different
                 % if parameter name specified, check if it is in there
                 % otherwise, it cannot be interdependent set
                 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
                 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-                disp("aha");
+                parameter_name = p.Results.ParameterName;
+                pn = obj.parameters{diffe ~= 0, 1}; % find the name of different size
+                if p.Results.ParameterName == "" % not specified
+                    if length(pn) > 1
+                        error("Unable to merge: unable to deduce the parameter to merge!");
+                    elseif length(pn) == 1
+                        parameter_name = pn;
+                    end
+                else % name specified
+                    if ~ismember(parameter_name, pn) % specified name does not match this interdependent set
+                        error("Cannot merge the specified parameter name!");
+                    end
+                end
+            else
+                error("unable to merge: more than one parameter have different size!");
             end
-            disp(diff ~= 0);
 
 
             % ONly the size of each attribute data matters (size not need
             % to be the same)
             % If parameter name is not specified, find it
-            if p.Results.ParameterName == "" % not specified
-                % Go through the dataset
-            end
 
             para_loc = obj.iCheckAndFindParameter(parameter_name);
 
