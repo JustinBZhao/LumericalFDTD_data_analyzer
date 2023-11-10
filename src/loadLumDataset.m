@@ -11,7 +11,10 @@ function [parameters_info, attributes_info, attributes_component, xyz] = loadLum
 % In matrixdataset, you can have a parameter called 'x', etc.
 % In rectilineardataset, if you name a parameter 'x', it will be
 % transformed to 'x_2'
+% Sort the parameters?
 % Zero parameters, zero attributes???
+% Do not allow no attribute
+% Invalid (parameter, attribute) names, like "1", still passes
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % First dimension: rectilinear dataset x*y*z

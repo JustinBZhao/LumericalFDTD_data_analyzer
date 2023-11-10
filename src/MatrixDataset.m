@@ -140,17 +140,89 @@ classdef MatrixDataset < LumericalDataset
             new_obj.num_parameters = new_obj.num_parameters - (nargin - 1);
         end
 
-        function new_obj = mergeDataset(obj, other_obj, parameter_name)
+        function new_obj = mergeDataset(obj, other_obj, varargin)
             % Merge two datasets into one
             % Other than the specified parameter name, every other
             % parameter has to be exactly the same.
 
             %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+            % Same class? matrixdataset
             % Check everything else is the same.
             % What if the parameter is interdependent?
             % What if the parameter has overlap between objs?
             % What if the parameter are not same monotonic direction?
             % What will be the slicing (axis component) after merging?
+            % Parameter orders: does not need to be the same???
+            p = inputParser();
+            p.PartialMatching = false;
+            p.CaseSensitive = true;
+            p.addParameter('RemoveDuplicate', false, ...
+                @(x) validateInputText(x, [true, false], "Expected true or false."));
+            p.addParameter('Tolerance', 0, @mustBeNonnegativeScalar); % default tolerance is 0
+            p.addParameter('ParameterName', "", @mustBeTextScalar); % parameter name cannot be empty
+            p.parse(varargin{:});
+
+            function validateInputText(input, valid_options, errmsg)
+                for option = valid_options
+                    if isequal(input, option)
+                        return;
+                    end
+                end
+                error(errmsg);
+            end
+
+            function mustBeNonnegativeScalar(input)
+                mustBeNonnegative(input);
+                if ~isscalar(input)
+                    error("Value must be scalar.");
+                end
+            end
+
+            % Go through the dataset
+            % Same attribute fields
+            attribute_names = fieldnames(obj.attributes);
+            if ~isequal(attribute_names, fieldnames(other_obj.attributes))
+                error("Unable to merge: two datasets do not have the same attribute sets!");
+            end
+% Same type (scalar, vector) for each attribute
+            % Shortcut: check attributes_component (both NaN or neither)
+            for i = 1:length(attribute_names)
+                name = attribute_names{i};
+                if (isnan(obj.attributes_component.(name)) && ~isnan(other_obj.attributes_component.(name))) || ...
+                    (~isnan(obj.attributes_component.(name)) && isnan(other_obj.attributes_component.(name)))
+                    error("Unable to merge: at least one attribute in two datasets do not have the same type (scalar or vector)!");
+                end
+            end
+            % Same parameter fields
+            if ~isequal(obj.parameters(:, 1), other_obj.parameters(:, 1))
+                error("Unable to merge: two datasets do not have the same parameter sets!");
+            end
+
+            % Parameter sizes: at most one can be different
+            diff = cell2mat(obj.parameters(:, 3)) - cell2mat(other_obj.parameters(:, 3));
+            if nnz(diff) == 0 % sizes all the same
+                % Need to have user specified parameter name
+                if p.Results.ParameterName == "" % not specified
+                error("Unable to merge: unable to deduce the parameter to merge!");
+                end
+                parameter_name = p.Results.ParameterName;
+            elseif nnz(diff) == 1 % one size different
+                % if parameter name specified, check if it is in there
+                % otherwise, it cannot be interdependent set
+                %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+                %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+                disp("aha");
+            end
+            disp(diff ~= 0);
+
+
+            % ONly the size of each attribute data matters (size not need
+            % to be the same)
+            % If parameter name is not specified, find it
+            if p.Results.ParameterName == "" % not specified
+                % Go through the dataset
+            end
+
             para_loc = obj.iCheckAndFindParameter(parameter_name);
 
             new_obj = obj.copy();
