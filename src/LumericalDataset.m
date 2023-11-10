@@ -380,5 +380,23 @@ classdef (Abstract) LumericalDataset < matlab.mixin.Copyable
                 result = attribute_data(idx{:});
             end
         end
+
+        function tf = isequalWithinTol(first, second, absTol, relTol)
+            % Compare two numeric arrays equal within a tolerance limit
+            % Absolute OR relative tolerance satisfied
+            if nargin <= 3
+                relTol = 1e-10;
+            end
+            if nargin == 2
+                absTol = 1e-10;
+            end
+            if ~isequal(size(first), size(second))
+                tf = false;
+                return;
+            end
+            absolute_error = abs(first - second);
+            relative_error = abs((first - second) ./ first);
+            tf = all((relative_error < relTol) | (absolute_error < absTol), 'all');
+        end
     end
 end

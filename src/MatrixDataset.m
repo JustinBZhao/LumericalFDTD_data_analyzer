@@ -141,13 +141,17 @@ classdef MatrixDataset < LumericalDataset
         end
 
         function new_obj = mergeDataset(obj, other_obj, varargin)
-            % Merge two datasets into one
-            % Other than the specified parameter name, every other
-            % parameter has to be exactly the same.
+            % Merge two datasets into one along one parameter direction
+            % All parameter names should be the same, and every other
+            % parameter data should be the same.
+            % Options:
+            % 'ParameterName': specify the parameter direction to merge.
+            % Otherwise, this function will try to deduce it for you.
+            % 'RemoveDuplicate': boolean specifying whether to remove the
+            % duplicate parameter points when merging. Corresponding
+            % attribute data will be averaged. Default false.
 
             %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-            % Same class? matrixdataset
-            % Check everything else is the same.
             % What if the parameter is interdependent?
             % What if the parameter has overlap between objs?
             % What if the parameter are not same monotonic direction?
@@ -179,6 +183,9 @@ classdef MatrixDataset < LumericalDataset
             end
 
             % Go through the dataset
+            if class(other_obj) ~= "MatrixDataset"
+                error("Matrix dataset should merge with another matrix dataset!");
+            end
             % Same attribute fields
             attribute_names = fieldnames(obj.attributes);
             if ~isequal(attribute_names, fieldnames(other_obj.attributes))
@@ -198,47 +205,46 @@ classdef MatrixDataset < LumericalDataset
                 error("Unable to merge: two datasets do not have the same parameter sets!");
             end
 
-            % Parameter sizes: at most one can be different
-            diffe = cell2mat(obj.parameters(:, 3)) - cell2mat(other_obj.parameters(:, 3));
-            if nnz(diffe) == 0 % sizes all the same
+            % Parameter data: at most one can be different
+            param_data_diff = false(obj.num_parameters, 1);
+            for i = 1:obj.num_parameters
+                param_data_diff(i) = ~LumericalDataset.isequalWithinTol( ...
+                    obj.parameters{i, 2}, other_obj.parameters{i, 2});
+            end
+
+            if nnz(param_data_diff) == 0 % sizes all the same
                 % Need to have user specified parameter name
                 if p.Results.ParameterName == "" % not specified
                     error("Unable to merge: unable to deduce the parameter to merge!");
                 end
                 parameter_name = p.Results.ParameterName;
-            elseif nnz(diffe) == 1 % one size different
+            elseif nnz(param_data_diff) == 1 % one size different
                 % if parameter name specified, check if it is in there
                 % otherwise, it cannot be interdependent set
-                %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-                %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-                parameter_name = p.Results.ParameterName;
-                pn = obj.parameters{diffe ~= 0, 1}; % find the name of different size
-                if p.Results.ParameterName == "" % not specified
-                    if length(pn) > 1
+                names_data_diff = obj.parameters{param_data_diff ~= 0, 1}; % find the name of different size
+                if p.Results.ParameterName == "" % name not specified
+                    if length(names_data_diff) > 1
                         error("Unable to merge: unable to deduce the parameter to merge!");
-                    elseif length(pn) == 1
-                        parameter_name = pn;
+                    elseif length(names_data_diff) == 1
+                        parameter_name = names_data_diff;
                     end
                 else % name specified
-                    if ~ismember(parameter_name, pn) % specified name does not match this interdependent set
+                    parameter_name = p.Results.ParameterName;
+                    if ~ismember(parameter_name, names_data_diff) % specified name does not match this interdependent set
                         error("Cannot merge the specified parameter name!");
                     end
                 end
-            else
-                error("unable to merge: more than one parameter have different size!");
+            else % more than one parameter data different
+                error("Unable to merge: more than one parameter have different data!");
             end
 
-
-            % ONly the size of each attribute data matters (size not need
-            % to be the same)
-            % If parameter name is not specified, find it
-
+            % Now we know the parameter to merge. Start manipulating data
             para_loc = obj.iCheckAndFindParameter(parameter_name);
-
-            new_obj = obj.copy();
+            new_obj = obj.copy(); % new_obj based off obj
 
             %%%%%%%%%%%%%% Interdep complication not considered
             % Reverse monotonic decrease
+            % obj_order = obj.parameters{para_loc(1), 2}(:, 1);
             if ~all(diff(obj.parameters{para_loc(1), 2}(:, 1), 1, 1) > 0)
                 obj_store = obj.parameters{para_loc(1), 2}(end:-1:1, :);
                 obj_wrong = true;
