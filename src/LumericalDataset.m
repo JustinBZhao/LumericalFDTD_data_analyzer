@@ -59,7 +59,9 @@ classdef (Abstract) LumericalDataset < matlab.mixin.Copyable
             % Print attributes information
             fprintf("%d attribute(s):\n", obj.num_attributes);
             attributes_fields = fieldnames(obj.attributes);
-            max_str_length = max(cellfun(@length, attributes_fields)); % max name length
+            max_name_length = max([cellfun(@length, attributes_fields); 4]); % max name length
+            fprintf("| %-*s |  Type  | Plot component |\n", max_name_length, 'Name');
+            fprintf("+%s+--------+----------------+\n", repmat('-', 1, max_name_length + 2));
             for i = 1:obj.num_attributes
                 field = attributes_fields{i};
                 if isnan(obj.attributes_component.(field)) % scalar or vector
@@ -67,14 +69,35 @@ classdef (Abstract) LumericalDataset < matlab.mixin.Copyable
                 else
                     type = "vector";
                 end
-                fprintf("%-*s | %s\n", max_str_length, field, type); % attribute names and types
+                % Print attribute line
+                if isnan(obj.attributes_component.(field))
+                    component = "              ";
+                else
+                    switch obj.attributes_component.(field)
+                        case 0
+                            component = "  magnitude   ";
+                        case 1
+                            component = "      x       ";
+                        case 2
+                            component = "      y       ";
+                        case 3
+                            component = "      z       ";
+                    end
+                end
+                fprintf("| %-*s | %s | %s |\n", max_name_length, field, type, component);
             end
-            fprintf("%d parameter(s):\n", obj.num_parameters);
+
             % Print parameters information
+            fprintf("%d parameter(s):\n", obj.num_parameters);
             params = obj.parameters(:, 1);
-            max_digits = max(cellfun(@(x) length(num2str(x)), obj.parameters(:, 3))); % max number of points length
+            max_digits_n_points = max(cellfun(@(x) length(num2str(x)), obj.parameters(:, 3))); % max number of points length
+            max_digits_slice_index = max([arrayfun(@(x) length(num2str(x)), obj.parameters_indexes); 11]);
+            fprintf("| %-*s | Slice index | Name\n", max_digits_n_points + 9, 'N_points');
+            fprintf("+%s+%s+------\n", repmat('-', 1, max_digits_n_points + 11), ...
+                repmat('-', 1, max_digits_slice_index + 2));
             for i = 1:obj.num_parameters
-                fprintf("%*d point(s) | ", max_digits, obj.parameters{i, 3}); % number of points
+                fprintf("| %*d point(s) | %*d | ", max_digits_n_points, obj.parameters{i, 3}, ...
+                    max_digits_slice_index, obj.parameters_indexes(i)); % print parameter line
                 for param = params{i} % independent parameter names
                     fprintf("%s ", param);
                 end
