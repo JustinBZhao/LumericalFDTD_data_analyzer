@@ -311,10 +311,13 @@ classdef MatrixDataset < LumericalDataset
                     = mean(interdep_param_data(duplicates_set{i2}, :), 1);
                 for i = 1:length(attributes_names)
                     name = attributes_names{i};
-                    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-                    % Complicated slicing!
-                    new_obj.attributes.(name)(:, :, :, :, duplicates_set{i2}(1)) = ...
-                        mean(new_obj.attributes.(name)(:, :, :, :, duplicates_set{i2}(1)), 5);
+                    % Acquire the slice of attribute data and reassign
+                    slicing_first = repmat({':'}, 1, 2+obj.num_attributes);
+                    slicing_first{para_loc(1) + 2} = duplicates_set{i2}(1);
+                    slicing_all = repmat({':'}, 1, 2+obj.num_attributes);
+                    slicing_all{para_loc(1) + 2} = duplicates_set{i2};
+                    new_obj.attributes.(name)(slicing_first{:}) = ...
+                        mean(new_obj.attributes.(name)(slicing_all{:}), para_loc(1) + 2);
                 end
                 % Mark other instances as 'to be deleted'
                 data_to_keep(duplicates_set{i2}(2:end)) = false;
@@ -323,9 +326,9 @@ classdef MatrixDataset < LumericalDataset
             interdep_param_data = interdep_param_data(data_to_keep, :);
             for i = 1:length(attributes_names)
                 name = attributes_names{i};
-                %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-                % Complicated slicing!
-                new_obj.attributes.(name) = new_obj.attributes.(name)(:, :, :, :, data_to_keep);
+                slicing_keep = repmat({':'}, 1, 2+obj.num_attributes);
+                slicing_keep{para_loc(1) + 2} = data_to_keep;
+                new_obj.attributes.(name) = new_obj.attributes.(name)(slicing_keep{:});
             end
             % May need to sort
             %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
