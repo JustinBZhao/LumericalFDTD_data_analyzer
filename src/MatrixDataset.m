@@ -168,13 +168,7 @@ classdef MatrixDataset < LumericalDataset
             % satisfied when either absolute or relative tolerance is
             % satisfied.
 
-            %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-            % What if the parameter is interdependent?
-            % What if the parameter has overlap between objs?
-            % What if the parameter are not same monotonic direction?
-            % What will be the slicing (axis component) after merging?
-            % Not sorting Parameter orders: does not need to be the
-            % same??????
+            % Parse name-value pair
             p = inputParser();
             p.PartialMatching = false;
             p.CaseSensitive = true;
@@ -274,64 +268,74 @@ classdef MatrixDataset < LumericalDataset
             end
             interdep_param_data = new_obj.parameters{para_loc(1), 2};
 
-            % Sort the array (even if the user chooses not to)
-            [param_data_sorted, param_data_sorted_order] = sort(interdep_param_data(:, para_loc(2)), 1);
+            if p.Results.RemoveDuplicate
+                % Sort the array (even if the user chooses not to)
+                [param_data_sorted, param_data_sorted_order] = sort(interdep_param_data(:, para_loc(2)), 1);
 
-            % Traverse through sorted list, find all duplicate sets
-            %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-            % Should we consider preallocating duplicates_set?
-            duplicates_set = cell(0, 0); % empty cell
-            continuee = false;
-            for i1 = 1:length(param_data_sorted)-1
-                %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-                % a~=b, b~=c, does not necessarily mean a~=c
-                if LumericalDataset.isequalWithinTol( ...
-                        param_data_sorted(i1), param_data_sorted(i1+1), abs_tol, rel_tol)
-                    if continuee % continue in the current set
-                        % Store the index in the original unsorted array
-                        duplicates_set{end}(end+1) = param_data_sorted_order(i1+1);
-                    else % start of new set
-                        duplicates_set{end+1}(1) = param_data_sorted_order(i1); % "push_back"
-                        duplicates_set{end}(2) = param_data_sorted_order(i1+1);
+                % Traverse through sorted list, find all duplicate sets
+                %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+                % Should we consider preallocating duplicates_set?
+                duplicates_set = cell(0, 0); % empty cell
+                continuee = false;
+                for i1 = 1:length(param_data_sorted)-1
+                    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+                    % a~=b, b~=c, does not necessarily mean a~=c
+                    if LumericalDataset.isequalWithinTol( ...
+                            param_data_sorted(i1), param_data_sorted(i1+1), abs_tol, rel_tol)
+                        if continuee % continue in the current set
+                            % Store the index in the original unsorted array
+                            duplicates_set{end}(end+1) = param_data_sorted_order(i1+1);
+                        else % start of new set
+                            duplicates_set{end+1}(1) = param_data_sorted_order(i1); % "push_back"
+                            duplicates_set{end}(2) = param_data_sorted_order(i1+1);
+                        end
+                        continuee = true;
+                        % Where the next group begin?
+                    else
+                        continuee = false;
                     end
-                    continuee = true;
-                    % Where the next group begin?
-                else
-                    continuee = false;
                 end
-            end
-            % For each duplicate set:
-            data_to_keep = true(size(interdep_param_data, 1), 1);
-            for i2 = 1:length(duplicates_set)
-                % Sort each duplicate set
-                duplicates_set{i2} = sort(duplicates_set{i2});
-                % Calculate and assign average of parameter and attributes
-                % data to the first index location
-                interdep_param_data(duplicates_set{i2}(1), :) ...
-                    = mean(interdep_param_data(duplicates_set{i2}, :), 1);
+                % For each duplicate set:
+                data_to_keep = true(size(interdep_param_data, 1), 1);
+                for i2 = 1:length(duplicates_set)
+                    % Sort each duplicate set
+                    duplicates_set{i2} = sort(duplicates_set{i2});
+                    % Calculate and assign average of parameter and attributes
+                    % data to the first index location
+                    interdep_param_data(duplicates_set{i2}(1), :) ...
+                        = mean(interdep_param_data(duplicates_set{i2}, :), 1);
+                    for i = 1:length(attributes_names)
+                        name = attributes_names{i};
+                        % Acquire the slice of attribute data and reassign
+                        slicing_first = repmat({':'}, 1, 2+obj.num_attributes);
+                        slicing_first{para_loc(1) + 2} = duplicates_set{i2}(1);
+                        slicing_all = repmat({':'}, 1, 2+obj.num_attributes);
+                        slicing_all{para_loc(1) + 2} = duplicates_set{i2};
+                        new_obj.attributes.(name)(slicing_first{:}) = ...
+                            mean(new_obj.attributes.(name)(slicing_all{:}), para_loc(1) + 2);
+                    end
+                    % Mark other instances as 'to be deleted'
+                    data_to_keep(duplicates_set{i2}(2:end)) = false;
+                end
+                % Remove all deleted instances
+                interdep_param_data = interdep_param_data(data_to_keep, :);
                 for i = 1:length(attributes_names)
                     name = attributes_names{i};
-                    % Acquire the slice of attribute data and reassign
-                    slicing_first = repmat({':'}, 1, 2+obj.num_attributes);
-                    slicing_first{para_loc(1) + 2} = duplicates_set{i2}(1);
-                    slicing_all = repmat({':'}, 1, 2+obj.num_attributes);
-                    slicing_all{para_loc(1) + 2} = duplicates_set{i2};
-                    new_obj.attributes.(name)(slicing_first{:}) = ...
-                        mean(new_obj.attributes.(name)(slicing_all{:}), para_loc(1) + 2);
+                    slicing_keep = repmat({':'}, 1, 2+obj.num_attributes);
+                    slicing_keep{para_loc(1) + 2} = data_to_keep;
+                    new_obj.attributes.(name) = new_obj.attributes.(name)(slicing_keep{:});
                 end
-                % Mark other instances as 'to be deleted'
-                data_to_keep(duplicates_set{i2}(2:end)) = false;
             end
-            % Remove all deleted instances
-            interdep_param_data = interdep_param_data(data_to_keep, :);
-            for i = 1:length(attributes_names)
-                name = attributes_names{i};
-                slicing_keep = repmat({':'}, 1, 2+obj.num_attributes);
-                slicing_keep{para_loc(1) + 2} = data_to_keep;
-                new_obj.attributes.(name) = new_obj.attributes.(name)(slicing_keep{:});
+            % Sort parameter and attributes if requested
+            if p.Results.Sort
+                [interdep_param_data, sort_idx] = sort(interdep_param_data, 1);
+                for i = 1:length(attributes_names)
+                    name = attributes_names{i};
+                    slicing_sort = repmat({':'}, 1, 2+obj.num_attributes);
+                    slicing_sort{para_loc(1) + 2} = sort_idx;
+                    new_obj.attributes.(name) = new_obj.attributes.(name)(slicing_sort{:});
+                end
             end
-            % May need to sort
-            %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
             % Assign parameter back to dataset
             new_obj.parameters{para_loc(1), 2} = interdep_param_data;
