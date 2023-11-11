@@ -15,6 +15,7 @@ function [parameters_info, attributes_info, attributes_component, xyz] = loadLum
 % Zero parameters, zero attributes???
 % Do not allow no attribute
 % Invalid (parameter, attribute) names, like "1", still passes
+% data can have NaN? Inf?
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % First dimension: rectilinear dataset x*y*z

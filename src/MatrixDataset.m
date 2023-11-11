@@ -143,30 +143,53 @@ classdef MatrixDataset < LumericalDataset
         function new_obj = mergeDataset(obj, other_obj, varargin)
             % Merge two datasets into one along one parameter direction
             % All parameter names should be the same, and every other
-            % parameter data should be the same.
+            % parameter data should be the same. After merging, that
+            % parameter slice index will be reset to 1.
             % Options:
-            % 'ParameterName': specify the parameter direction to merge.
-            % Otherwise, this function will try to deduce it for you.
-            % 'RemoveDuplicate': boolean specifying whether to remove the
-            % duplicate parameter points when merging. Corresponding
-            % attribute data will be averaged. Default false.
+            % 'ParameterName': specify the parameter to merge. If not
+            % specified, it will be deduced when applicable.
+            % 'RemoveDuplicate': default is false. Boolean specifying
+            % whether or not to remove the duplicate parameter points when
+            % merging. Duplication is defined as values within the
+            % tolerance specified by 'Tolerence'. Both the parameter
+            % (including other interdependent parameters) data and the
+            % corresponding attribute data for duplicate points will be
+            % averaged to yield the new data. The new data will be place at
+            % the location of the first instance of duplicate values in the
+            % resulting array, whether sorted or unsorted.
+            % 'Sort': default is false. Boolean specifying whether to sort
+            % the resulting parameter (along with the attribute data) or
+            % not. Currently only supports monotonic increase sort. The
+            % original order is preserved only for EXACTLY equal elements,
+            % if you choose not to remove duplicates.
+            % 'Tolerance': default is [0, 0]. Specified as two-element
+            % non-negative numeric array corresponding to
+            % [AbsoluteTolerance, RelativeTolerance]. The tolerance is
+            % satisfied when either absolute or relative tolerance is
+            % satisfied.
 
             %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
             % What if the parameter is interdependent?
             % What if the parameter has overlap between objs?
             % What if the parameter are not same monotonic direction?
             % What will be the slicing (axis component) after merging?
-            % Parameter orders: does not need to be the same???
+            % Not sorting Parameter orders: does not need to be the
+            % same??????
             p = inputParser();
             p.PartialMatching = false;
             p.CaseSensitive = true;
+            p.addParameter('Sort', false, ...
+                @(x) validateInput(x, [true, false], "Expected true or false."));
             p.addParameter('RemoveDuplicate', false, ...
-                @(x) validateInputText(x, [true, false], "Expected true or false."));
-            p.addParameter('Tolerance', 0, @mustBeNonnegativeScalar); % default tolerance is 0
+                @(x) validateInput(x, [true, false], "Expected true or false."));
+            p.addParameter('Tolerance', [0, 0], @mustBeNonnegativeDual);
             p.addParameter('ParameterName', "", @mustBeTextScalar); % parameter name cannot be empty
             p.parse(varargin{:});
 
-            function validateInputText(input, valid_options, errmsg)
+            abs_tol = p.Results.Tolerance(1);
+            rel_tol = p.Results.Tolerance(2);
+
+            function validateInput(input, valid_options, errmsg)
                 for option = valid_options
                     if isequal(input, option)
                         return;
@@ -175,10 +198,10 @@ classdef MatrixDataset < LumericalDataset
                 error(errmsg);
             end
 
-            function mustBeNonnegativeScalar(input)
+            function mustBeNonnegativeDual(input) % non-negative two-element numeric array
                 mustBeNonnegative(input);
-                if ~isscalar(input)
-                    error("Value must be scalar.");
+                if numel(input) ~= 2
+                    error("Value must be a two-element array.");
                 end
             end
 
@@ -187,14 +210,14 @@ classdef MatrixDataset < LumericalDataset
                 error("Matrix dataset should merge with another matrix dataset!");
             end
             % Same attribute fields
-            attribute_names = fieldnames(obj.attributes);
-            if ~isequal(attribute_names, fieldnames(other_obj.attributes))
+            attributes_names = fieldnames(obj.attributes);
+            if ~isequal(attributes_names, fieldnames(other_obj.attributes))
                 error("Unable to merge: two datasets do not have the same attribute sets!");
             end
             % Same type (scalar, vector) for each attribute
             % Shortcut: check attributes_component (both NaN or neither)
-            for i = 1:length(attribute_names)
-                name = attribute_names{i};
+            for i = 1:length(attributes_names)
+                name = attributes_names{i};
                 if (isnan(obj.attributes_component.(name)) && ~isnan(other_obj.attributes_component.(name))) || ...
                         (~isnan(obj.attributes_component.(name)) && isnan(other_obj.attributes_component.(name)))
                     error("Unable to merge: at least one attribute in two datasets do not have the same type (scalar or vector)!");
@@ -206,6 +229,7 @@ classdef MatrixDataset < LumericalDataset
             end
 
             % Parameter data: at most one can be different
+            % Here, equal within tolerance with AbsTol=1e-10, RelTol=1e-10
             param_data_diff = false(obj.num_parameters, 1);
             for i = 1:obj.num_parameters
                 param_data_diff(i) = ~LumericalDataset.isequalWithinTol( ...
@@ -240,80 +264,78 @@ classdef MatrixDataset < LumericalDataset
 
             % Now we know the parameter to merge. Start manipulating data
             para_loc = obj.iCheckAndFindParameter(parameter_name);
-            new_obj = obj.copy(); % new_obj based off obj
 
-            %%%%%%%%%%%%%% Interdep complication not considered
-            % Reverse monotonic decrease
-            % obj_order = obj.parameters{para_loc(1), 2}(:, 1);
-            if ~all(diff(obj.parameters{para_loc(1), 2}(:, 1), 1, 1) > 0)
-                obj_store = obj.parameters{para_loc(1), 2}(end:-1:1, :);
-                obj_wrong = true;
-            else
-                obj_store = obj.parameters{para_loc(1), 2};
-                obj_wrong = false;
+            % Combine data first (obj and then other_obj)
+            new_obj = obj.copy();
+            new_obj.parameters{para_loc(1), 2} = cat(1, obj.parameters{para_loc(1), 2}, other_obj.parameters{para_loc(1), 2});
+            for i = 1:length(attributes_names)
+                name = attributes_names{i};
+                new_obj.attributes.(name) = cat(para_loc(1) + 2, obj.attributes.(name), other_obj.attributes.(name));
             end
-            if ~all(diff(other_obj.parameters{para_loc(1), 2}(:, 1), 1, 1) > 0)
-                other_obj_store = other_obj.parameters{para_loc(1), 2}(end:-1:1, :);
-                other_obj_wrong = true;
-            else
-                other_obj_store = other_obj.parameters{para_loc(1), 2};
-                other_obj_wrong = false;
-            end
+            interdep_param_data = new_obj.parameters{para_loc(1), 2};
 
-            %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-            % Temperary
-            % WHAT tolerance?
-            if abs(obj_store(end, 1) - other_obj_store(1, 1)) < 1e-18
-                if obj_store(1, 1) < 400e-9 || obj_store(end, 1) > 1500e-9
-                    cancel = -1;
-                    new_obj.parameters{para_loc(1), 2} = [obj_store(1:end-1, :); other_obj_store];
+            % Sort the array (even if the user chooses not to)
+            [param_data_sorted, param_data_sorted_order] = sort(interdep_param_data(:, para_loc(2)), 1);
+
+            % Traverse through sorted list, find all duplicate sets
+            %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+            % Should we consider preallocating duplicates_set?
+            duplicates_set = cell(0, 0); % empty cell
+            continuee = false;
+            for i1 = 1:length(param_data_sorted)-1
+                %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+                % a~=b, b~=c, does not necessarily mean a~=c
+                if LumericalDataset.isequalWithinTol( ...
+                        param_data_sorted(i1), param_data_sorted(i1+1), abs_tol, rel_tol)
+                    if continuee % continue in the current set
+                        % Store the index in the original unsorted array
+                        duplicates_set{end}(end+1) = param_data_sorted_order(i1+1);
+                    else % start of new set
+                        duplicates_set{end+1}(1) = param_data_sorted_order(i1); % "push_back"
+                        duplicates_set{end}(2) = param_data_sorted_order(i1+1);
+                    end
+                    continuee = true;
+                    % Where the next group begin?
                 else
-                    cancel = 1;
-                    new_obj.parameters{para_loc(1), 2} = [obj_store; other_obj_store(2:end, :)];
+                    continuee = false;
                 end
-                new_obj.parameters{para_loc(1), 3} = obj.parameters{para_loc(1), 3} + other_obj.parameters{para_loc(1), 3} - 1;
-            else
-                cancel = 0;
-                new_obj.parameters{para_loc(1), 2} = [obj_store; other_obj_store];
-                new_obj.parameters{para_loc(1), 3} = obj.parameters{para_loc(1), 3} + other_obj.parameters{para_loc(1), 3};
             end
-
-            % Adjust attributes
-            attributes_fields = fieldnames(obj.attributes);
-
-            % Also reverse monotonic decrease and THEN trim
-            for i = 1:obj.num_attributes
-                field = attributes_fields{i};
-                if obj_wrong
-                    obj_attri = flip(obj.attributes.(field), para_loc(1) + 2);
-                else
-                    obj_attri = obj.attributes.(field);
+            % For each duplicate set:
+            data_to_keep = true(size(interdep_param_data, 1), 1);
+            for i2 = 1:length(duplicates_set)
+                % Sort each duplicate set
+                duplicates_set{i2} = sort(duplicates_set{i2});
+                % Calculate and assign average of parameter and attributes
+                % data to the first index location
+                interdep_param_data(duplicates_set{i2}(1), :) ...
+                    = mean(interdep_param_data(duplicates_set{i2}, :), 1);
+                for i = 1:length(attributes_names)
+                    name = attributes_names{i};
+                    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+                    % Complicated slicing!
+                    new_obj.attributes.(name)(:, :, :, :, duplicates_set{i2}(1)) = ...
+                        mean(new_obj.attributes.(name)(:, :, :, :, duplicates_set{i2}(1)), 5);
                 end
-                if other_obj_wrong
-                    other_obj_attri = flip(other_obj.attributes.(field), para_loc(1) + 2);
-                else
-                    other_obj_attri = other_obj.attributes.(field);
-                end
-
-                if cancel == -1
-                    % Remove last index along parameter dim
-                    dim = para_loc(1) + 2;
-                    idx = true(1, size(obj_attri, dim));
-                    idx(end) = false;
-                    subs = repmat({':'}, 1, ndims(obj_attri));
-                    subs{dim} = idx;
-                    obj_attri = obj_attri(subs{:});
-                elseif cancel == 1
-                    % Remove first index along parameter dim
-                    dim = para_loc(1) + 2;
-                    idx = true(1, size(other_obj_attri, dim));
-                    idx(1) = false;
-                    subs = repmat({':'}, 1, ndims(other_obj_attri));
-                    subs{dim} = idx;
-                    other_obj_attri = other_obj_attri(subs{:});
-                end
-                new_obj.attributes.(field) = cat(para_loc(1) + 2, obj_attri, other_obj_attri);
+                % Mark other instances as 'to be deleted'
+                data_to_keep(duplicates_set{i2}(2:end)) = false;
             end
+            % Remove all deleted instances
+            interdep_param_data = interdep_param_data(data_to_keep, :);
+            for i = 1:length(attributes_names)
+                name = attributes_names{i};
+                %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+                % Complicated slicing!
+                new_obj.attributes.(name) = new_obj.attributes.(name)(:, :, :, :, data_to_keep);
+            end
+            % May need to sort
+            %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+            % Assign parameter back to dataset
+            new_obj.parameters{para_loc(1), 2} = interdep_param_data;
+            % Update parameter data length
+            new_obj.parameters{para_loc(1), 3} = size(interdep_param_data, 1);
+            % Update parameter slice index
+            new_obj.parameters_indexes(para_loc(1)) = 1;
         end
     end
 end

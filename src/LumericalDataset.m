@@ -173,7 +173,7 @@ classdef (Abstract) LumericalDataset < matlab.mixin.Copyable
         [xdata, ydata, zdata] = getPlot2DData(obj, parameter1_name, parameter2_name, attribute_name);
         [x, y, z, data] = getPlot3DData(obj, parameter1_name, parameter2_name, parameter3_name, attribute_name);
         new_obj = removeDimensions(obj, varargin);
-        new_obj = mergeDataset(obj, other_obj, parameter_name);
+        new_obj = mergeDataset(obj, other_obj, varargin);
     end
 
     methods (Access = protected)
@@ -396,7 +396,7 @@ classdef (Abstract) LumericalDataset < matlab.mixin.Copyable
             end
             absolute_error = abs(first - second);
             relative_error = abs((first - second) ./ first);
-            tf = all((relative_error < relTol) | (absolute_error < absTol), 'all');
+            tf = all((absolute_error <= absTol) | (relative_error <= relTol), 'all');
         end
     end
 end

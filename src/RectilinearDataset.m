@@ -205,8 +205,8 @@ classdef RectilinearDataset < LumericalDataset
             new_obj.num_parameters = new_obj.num_parameters - length(param_idx);
         end
 
-        function new_obj = mergeDataset(obj, other_obj, parameter_name)
-            %
+        function new_obj = mergeDataset(obj, other_obj, varargin)
+            error("This method is not implemented.");
         end
     end
 
