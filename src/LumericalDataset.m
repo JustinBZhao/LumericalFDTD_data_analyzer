@@ -388,7 +388,7 @@ classdef (Abstract) LumericalDataset < matlab.mixin.Copyable
                 relTol = 1e-10;
             end
             if nargin == 2
-                absTol = 1e-10;
+                absTol = 1e-12;
             end
             if ~isequal(size(first), size(second))
                 tf = false;

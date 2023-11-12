@@ -223,7 +223,7 @@ classdef MatrixDataset < LumericalDataset
             end
 
             % Parameter data: at most one can be different
-            % Here, equal within tolerance with AbsTol=1e-10, RelTol=1e-10
+            % Here, equal within tolerance with AbsTol=1e-12, RelTol=1e-10
             param_data_diff = false(obj.num_parameters, 1);
             for i = 1:obj.num_parameters
                 param_data_diff(i) = ~LumericalDataset.isequalWithinTol( ...
@@ -276,23 +276,23 @@ classdef MatrixDataset < LumericalDataset
                 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
                 % Should we consider preallocating duplicates_set?
                 duplicates_set = cell(0, 0); % empty cell
-                continuee = false;
+                tf_continue_current_set = false;
                 for i1 = 1:length(param_data_sorted)-1
                     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
                     % a~=b, b~=c, does not necessarily mean a~=c
                     if LumericalDataset.isequalWithinTol( ...
                             param_data_sorted(i1), param_data_sorted(i1+1), abs_tol, rel_tol)
-                        if continuee % continue in the current set
+                        if tf_continue_current_set % continue in the current set
                             % Store the index in the original unsorted array
                             duplicates_set{end}(end+1) = param_data_sorted_order(i1+1);
                         else % start of new set
                             duplicates_set{end+1}(1) = param_data_sorted_order(i1); % "push_back"
                             duplicates_set{end}(2) = param_data_sorted_order(i1+1);
                         end
-                        continuee = true;
+                        tf_continue_current_set = true;
                         % Where the next group begin?
                     else
-                        continuee = false;
+                        tf_continue_current_set = false;
                     end
                 end
                 % For each duplicate set:
@@ -328,7 +328,8 @@ classdef MatrixDataset < LumericalDataset
             end
             % Sort parameter and attributes if requested
             if p.Results.Sort
-                [interdep_param_data, sort_idx] = sort(interdep_param_data, 1);
+                [~, sort_idx] = sort(interdep_param_data(:, para_loc(2)), 1);
+                interdep_param_data = interdep_param_data(sort_idx, :);
                 for i = 1:length(attributes_names)
                     name = attributes_names{i};
                     slicing_sort = repmat({':'}, 1, 2+obj.num_attributes);
