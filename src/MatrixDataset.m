@@ -169,35 +169,11 @@ classdef MatrixDataset < LumericalDataset
             % satisfied.
 
             % Parse name-value pair
-            p = inputParser();
-            p.PartialMatching = false;
-            p.CaseSensitive = true;
-            p.addParameter('Sort', false, ...
-                @(x) validateInput(x, [true, false], "Expected true or false."));
-            p.addParameter('RemoveDuplicate', false, ...
-                @(x) validateInput(x, [true, false], "Expected true or false."));
-            p.addParameter('Tolerance', [0, 0], @mustBeNonnegativeDual);
-            p.addParameter('ParameterName', "", @mustBeTextScalar); % parameter name cannot be empty
+            p = createParser();
             p.parse(varargin{:});
 
             abs_tol = p.Results.Tolerance(1);
             rel_tol = p.Results.Tolerance(2);
-
-            function validateInput(input, valid_options, errmsg)
-                for option = valid_options
-                    if isequal(input, option)
-                        return;
-                    end
-                end
-                error(errmsg);
-            end
-
-            function mustBeNonnegativeDual(input) % non-negative two-element numeric array
-                mustBeNonnegative(input);
-                if numel(input) ~= 2
-                    error("Value must be a two-element array.");
-                end
-            end
 
             % Go through the dataset
             if class(other_obj) ~= "MatrixDataset"
@@ -210,8 +186,8 @@ classdef MatrixDataset < LumericalDataset
             end
             % Same type (scalar, vector) for each attribute
             % Shortcut: check attributes_component (both NaN or neither)
-            for i = 1:length(attributes_names)
-                name = attributes_names{i};
+            for i1 = 1:length(attributes_names)
+                name = attributes_names{i1};
                 if (isnan(obj.attributes_component.(name)) && ~isnan(other_obj.attributes_component.(name))) || ...
                         (~isnan(obj.attributes_component.(name)) && isnan(other_obj.attributes_component.(name)))
                     error("Unable to merge: at least one attribute in two datasets do not have the same type (scalar or vector)!");
@@ -225,9 +201,9 @@ classdef MatrixDataset < LumericalDataset
             % Parameter data: at most one can be different
             % Here, equal within tolerance with AbsTol=1e-12, RelTol=1e-10
             param_data_diff = false(obj.num_parameters, 1);
-            for i = 1:obj.num_parameters
-                param_data_diff(i) = ~LumericalDataset.isequalWithinTol( ...
-                    obj.parameters{i, 2}, other_obj.parameters{i, 2});
+            for i2 = 1:obj.num_parameters
+                param_data_diff(i2) = ~LumericalDataset.isequalWithinTol( ...
+                    obj.parameters{i2, 2}, other_obj.parameters{i2, 2});
             end
 
             if nnz(param_data_diff) == 0 % sizes all the same
@@ -259,73 +235,15 @@ classdef MatrixDataset < LumericalDataset
             % Now we know the parameter to merge. Start manipulating data
             para_loc = obj.iCheckAndFindParameter(parameter_name);
 
-            % Combine data first (obj and then other_obj)
-            new_obj = obj.copy();
-            new_obj.parameters{para_loc(1), 2} = cat(1, obj.parameters{para_loc(1), 2}, other_obj.parameters{para_loc(1), 2});
-            for i = 1:length(attributes_names)
-                name = attributes_names{i};
-                new_obj.attributes.(name) = cat(para_loc(1) + 2, obj.attributes.(name), other_obj.attributes.(name));
-            end
+            % Combine into new_obj (new_obj ~ [obj other_obj])
+            new_obj = createNewObj(obj, other_obj, attributes_names, para_loc);
+
             interdep_param_data = new_obj.parameters{para_loc(1), 2};
 
             if p.Results.RemoveDuplicate
-                % Sort the array (even if the user chooses not to)
-                [param_data_sorted, param_data_sorted_order] = sort(interdep_param_data(:, para_loc(2)), 1);
-
-                % Traverse through sorted list, find all duplicate sets
-                %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-                % Should we consider preallocating duplicates_set?
-                duplicates_set = cell(0, 0); % empty cell
-                tf_continue_current_set = false;
-                for i1 = 1:length(param_data_sorted)-1
-                    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-                    % a~=b, b~=c, does not necessarily mean a~=c
-                    if LumericalDataset.isequalWithinTol( ...
-                            param_data_sorted(i1), param_data_sorted(i1+1), abs_tol, rel_tol)
-                        if tf_continue_current_set % continue in the current set
-                            % Store the index in the original unsorted array
-                            duplicates_set{end}(end+1) = param_data_sorted_order(i1+1);
-                        else % start of new set
-                            duplicates_set{end+1}(1) = param_data_sorted_order(i1); % "push_back"
-                            duplicates_set{end}(2) = param_data_sorted_order(i1+1);
-                        end
-                        tf_continue_current_set = true;
-                        % Where the next group begin?
-                    else
-                        tf_continue_current_set = false;
-                    end
-                end
-                % For each duplicate set:
-                data_to_keep = true(size(interdep_param_data, 1), 1);
-                for i2 = 1:length(duplicates_set)
-                    % Sort each duplicate set
-                    duplicates_set{i2} = sort(duplicates_set{i2});
-                    % Calculate and assign average of parameter and attributes
-                    % data to the first index location
-                    interdep_param_data(duplicates_set{i2}(1), :) ...
-                        = mean(interdep_param_data(duplicates_set{i2}, :), 1);
-                    for i = 1:length(attributes_names)
-                        name = attributes_names{i};
-                        % Acquire the slice of attribute data and reassign
-                        slicing_first = repmat({':'}, 1, 2+obj.num_attributes);
-                        slicing_first{para_loc(1) + 2} = duplicates_set{i2}(1);
-                        slicing_all = repmat({':'}, 1, 2+obj.num_attributes);
-                        slicing_all{para_loc(1) + 2} = duplicates_set{i2};
-                        new_obj.attributes.(name)(slicing_first{:}) = ...
-                            mean(new_obj.attributes.(name)(slicing_all{:}), para_loc(1) + 2);
-                    end
-                    % Mark other instances as 'to be deleted'
-                    data_to_keep(duplicates_set{i2}(2:end)) = false;
-                end
-                % Remove all deleted instances
-                interdep_param_data = interdep_param_data(data_to_keep, :);
-                for i = 1:length(attributes_names)
-                    name = attributes_names{i};
-                    slicing_keep = repmat({':'}, 1, 2+obj.num_attributes);
-                    slicing_keep{para_loc(1) + 2} = data_to_keep;
-                    new_obj.attributes.(name) = new_obj.attributes.(name)(slicing_keep{:});
-                end
+                interdep_param_data = removeDuplicate(new_obj, interdep_param_data, attributes_names, para_loc);
             end
+
             % Sort parameter and attributes if requested
             if p.Results.Sort
                 [~, sort_idx] = sort(interdep_param_data(:, para_loc(2)), 1);
@@ -344,6 +262,107 @@ classdef MatrixDataset < LumericalDataset
             new_obj.parameters{para_loc(1), 3} = size(interdep_param_data, 1);
             % Update parameter slice index
             new_obj.parameters_indexes(para_loc(1)) = 1;
+
+            function p = createParser()
+                % Parse name-value pair
+                p = inputParser();
+                p.PartialMatching = false;
+                p.CaseSensitive = true;
+                p.addParameter('Sort', false, ...
+                    @(x) validateInput(x, [true, false], "Expected true or false."));
+                p.addParameter('RemoveDuplicate', false, ...
+                    @(x) validateInput(x, [true, false], "Expected true or false."));
+                p.addParameter('Tolerance', [0, 0], @mustBeNonnegativeDual);
+                p.addParameter('ParameterName', "", @mustBeTextScalar); % parameter name cannot be empty
+            end
+
+            function validateInput(input, valid_options, errmsg)
+                for option = valid_options
+                    if isequal(input, option)
+                        return;
+                    end
+                end
+                error(errmsg);
+            end
+
+            function mustBeNonnegativeDual(input) % non-negative two-element numeric array
+                mustBeNonnegative(input);
+                if numel(input) ~= 2
+                    error("Value must be a two-element array.");
+                end
+            end
+
+            function new_obj = createNewObj(obj, other_obj, attributes_names, para_loc)
+                % Combine into new_obj (new_obj ~ [obj other_obj])
+                new_obj = obj.copy();
+                new_obj.parameters{para_loc(1), 2} = cat(1, obj.parameters{para_loc(1), 2}, other_obj.parameters{para_loc(1), 2});
+                for i3 = 1:length(attributes_names)
+                    name = attributes_names{i3};
+                    new_obj.attributes.(name) = cat(para_loc(1) + 2, obj.attributes.(name), other_obj.attributes.(name));
+                end
+            end
+
+            function interdep_param_data = removeDuplicate(new_obj, interdep_param_data, attributes_names, para_loc)
+                % Remove duplicate for the combined parameter and
+                % corresponding attribute values
+
+                % Sort the array for easier duplication checking
+                [param_data_sorted, param_data_sorted_order] = sort(interdep_param_data(:, para_loc(2)), 1);
+
+                % Traverse through sorted list, find all duplicate sets
+                duplicates_set = cell(0, 0); % empty cell
+                tf_continue_current_set = false;
+                for i4 = 1:length(param_data_sorted)-1
+                    % Here, I am assuming that for 3 adjacent elements
+                    % [a,b,c], if a==b and b==c within the tolerance, then
+                    % a,b,c are all in the same duplicate set. In reality,
+                    % a==c within the tolerance might not hold.
+                    if LumericalDataset.isequalWithinTol( ...
+                            param_data_sorted(i4), param_data_sorted(i4+1), abs_tol, rel_tol)
+                        if tf_continue_current_set % continue in the current set
+                            % Store the index in the original unsorted array
+                            duplicates_set{end}(end+1) = param_data_sorted_order(i4+1);
+                        else % start of new set
+                            duplicates_set{end+1}(1) = param_data_sorted_order(i4); % "push_back"
+                            duplicates_set{end}(2) = param_data_sorted_order(i4+1);
+                        end
+                        tf_continue_current_set = true;
+                        % Where the next group begin?
+                    else
+                        tf_continue_current_set = false;
+                    end
+                end
+                % For each duplicate set:
+                data_to_keep = true(size(interdep_param_data, 1), 1);
+                for i5 = 1:length(duplicates_set)
+                    % Sort each duplicate set
+                    duplicates_set{i5} = sort(duplicates_set{i5});
+                    % Calculate and assign average of parameter and attributes
+                    % data to the first index location
+                    interdep_param_data(duplicates_set{i5}(1), :) ...
+                        = mean(interdep_param_data(duplicates_set{i5}, :), 1);
+                    for j = 1:length(attributes_names)
+                        name = attributes_names{j};
+                        % Acquire the slice of attribute data and reassign
+                        slicing_first = repmat({':'}, 1, 2+new_obj.num_attributes);
+                        slicing_first{para_loc(1) + 2} = duplicates_set{i5}(1);
+                        slicing_all = repmat({':'}, 1, 2+new_obj.num_attributes);
+                        slicing_all{para_loc(1) + 2} = duplicates_set{i5};
+                        new_obj.attributes.(name)(slicing_first{:}) = ...
+                            mean(new_obj.attributes.(name)(slicing_all{:}), para_loc(1) + 2);
+                    end
+                    % Mark other instances as 'to be deleted'
+                    data_to_keep(duplicates_set{i5}(2:end)) = false;
+                end
+                % Remove all deleted instances
+                interdep_param_data = interdep_param_data(data_to_keep, :);
+                for i6 = 1:length(attributes_names)
+                    name = attributes_names{i6};
+                    slicing_keep = repmat({':'}, 1, 2+new_obj.num_attributes);
+                    slicing_keep{para_loc(1) + 2} = data_to_keep;
+                    new_obj.attributes.(name) = new_obj.attributes.(name)(slicing_keep{:});
+                end
+            end
         end
     end
 end
