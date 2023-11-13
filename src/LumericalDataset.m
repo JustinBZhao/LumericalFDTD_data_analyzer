@@ -196,6 +196,7 @@ classdef (Abstract) LumericalDataset < matlab.mixin.Copyable
         [xdata, ydata, zdata] = getPlot2DData(obj, parameter1_name, parameter2_name, attribute_name);
         [x, y, z, data] = getPlot3DData(obj, parameter1_name, parameter2_name, parameter3_name, attribute_name);
         new_obj = removeDimensions(obj, varargin);
+        new_obj = mergeDataset(obj, other_obj, varargin);
     end
 
     methods (Access = protected)
@@ -401,6 +402,24 @@ classdef (Abstract) LumericalDataset < matlab.mixin.Copyable
                 idx{2} = component_index;
                 result = attribute_data(idx{:});
             end
+        end
+
+        function tf = isequalWithinTol(first, second, absTol, relTol)
+            % Compare two numeric arrays equal within a tolerance limit
+            % Absolute OR relative tolerance satisfied
+            if nargin <= 3
+                relTol = 1e-10;
+            end
+            if nargin == 2
+                absTol = 1e-12;
+            end
+            if ~isequal(size(first), size(second))
+                tf = false;
+                return;
+            end
+            absolute_error = abs(first - second);
+            relative_error = abs((first - second) ./ first);
+            tf = all((absolute_error <= absTol) | (relative_error <= relTol), 'all');
         end
     end
 end
