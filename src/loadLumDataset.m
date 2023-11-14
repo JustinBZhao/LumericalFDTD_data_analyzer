@@ -1,4 +1,6 @@
 function [parameters_info, attributes_info, attributes_component, xyz] = loadLumDataset(lum_dataset)
+% Load Lumerical exported MATLAB dataset into custom class object
+
 % Do not pre-assign enough memory. Arrays are small anyways
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Problems not solved %%%%%%%%%%%%%%%%
 % Check contents in Lumerical_dataset.attributes (also if it includes
@@ -19,6 +21,9 @@ function [parameters_info, attributes_info, attributes_component, xyz] = loadLum
 % Do not allow no attribute
 % Invalid (parameter, attribute) names, like "1", still passes
 % data can have NaN? Inf?
+% May need to label attribute scalar or vector somewhere??????
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% values can be complex (parameters, xyz)
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % First dimension: rectilinear dataset x*y*z

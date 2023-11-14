@@ -1,7 +1,5 @@
 classdef (Abstract) LumericalDataset < matlab.mixin.Copyable
     % Lumerical dataset base class
-    % When you want to make a copy of an object, call the copy() function
-    % instead of using the assignment operator '='.
 
     properties (SetAccess = protected)
         attributes
