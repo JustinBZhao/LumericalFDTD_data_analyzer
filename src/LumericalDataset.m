@@ -163,6 +163,14 @@ classdef (Abstract) LumericalDataset < matlab.mixin.Copyable
             % Calls the respective polymorphic function for each object
             [xdata, ydata, zdata] = obj.getPlot2DData(parameter1_name, parameter2_name, attribute_name);
 
+            % Throw an error is xdata or ydata (parameters) is not monotonic
+            if ~LumericalDataset.isRealVectorMonotonic(xdata)
+                error("x data is not monotonic! Cannot make 2D plot.");
+            end
+            if ~LumericalDataset.isRealVectorMonotonic(ydata)
+                error("y data is not monotonic! Cannot make 2D plot.");
+            end
+
             % Adjust data to make true "2D plot"
             % If length(xdata) == 1 or length(ydata) == 1, this program
             % will not report an error but will have nothing plotted
@@ -418,6 +426,12 @@ classdef (Abstract) LumericalDataset < matlab.mixin.Copyable
             absolute_error = abs(first - second);
             relative_error = abs((first - second) ./ first);
             tf = all((absolute_error <= absTol) | (relative_error <= relTol), 'all');
+        end
+
+        function tf = isRealVectorMonotonic(vec)
+            % Returns true if a real-valued non-empty vector is strictly
+            % monotonic (increasing or decreasing)
+            tf =  all(diff(vec) > 0) || all(diff(vec) < 0);
         end
     end
 end

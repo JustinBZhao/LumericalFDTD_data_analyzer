@@ -1,22 +1,26 @@
 function [parameters_info, attributes_info, attributes_component, xyz] = loadLumDataset(lum_dataset)
 % Load Lumerical exported MATLAB dataset into custom class object
 
+% Parameter and attribute data array cannot be empty.
+% Missing required data will result in an error. However, more (useless)
+% data will not trigger the error, and will simply be ignored.
+% In a rectilinear dataset, non-positional vectors cannot be named x,y or
+% z.
+% If a parameter vector contains duplicate element or is not monotonic, no
+% error/warning will be thrown. However, you cannot make 2D plot on that
+% parameter.
+
 % Do not pre-assign enough memory. Arrays are small anyways
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Problems not solved %%%%%%%%%%%%%%%%
-% Check contents in Lumerical_dataset.attributes (also if it includes
-% 'geometry')
-% Check if it is actually a dataset (check every single aspect of it)?
-% Did not check if there are more things in the dataset
 % Check duplication???
 % Check x, y, z?????????
 % Only supports scalar or vector attributes (tensor?)
-% In matrixdataset, you can have a parameter called 'x', etc.
-% In rectilineardataset, if you name a parameter 'x', it will be
-% transformed to 'x_2'
 % Sort the parameters?
 % Zero parameters, zero attributes???
 % parameters complex?
 % Cannot be empty
+% Reject 2D plot if parameter is not monotonic, or has duplicates
+% Remove checking of monotonic or duplicates
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Do not allow no attribute
 % Invalid (parameter, attribute) names, like "1", still passes
@@ -24,6 +28,7 @@ function [parameters_info, attributes_info, attributes_component, xyz] = loadLum
 % May need to label attribute scalar or vector somewhere??????
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % values can be complex (parameters, xyz)
+% Complex parameters reduction
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % First dimension: rectilinear dataset x*y*z
@@ -134,14 +139,6 @@ for i = 1:length(parameters)
         value = value(:); % convert to column vector, if applicable
         % Remove this field from the dataset, prevent duplicate names
         lum_dataset = rmfield(lum_dataset, interdep_parameter_name);
-        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-        % If parameter not monotonic increasing or decreasing, issue a
-        % warning
-        if ~all(diff(value) >= 0) && ~all(diff(value) <= 0)
-            %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-            % Plotting should not work if it is not monotonic
-            warning("Data of parameter '" + interdep_parameter_name + "' is not monotonic! Plots cannot be made correctly!");
-        end
         parameter_length(j) = length(value);
         parameter_values{j} = value; % each value could be different length
 
