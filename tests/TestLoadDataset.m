@@ -1,6 +1,10 @@
 classdef TestLoadDataset < matlab.unittest.TestCase
     % Test suite for loadLumDataset method.
 
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    % How do you test if something does NOT generate the error?
+    % How do you test warnings?
+
     properties
         ds_matrix % normal matrix dataset
         ds_recti  % normal rectilinear dataset
@@ -25,6 +29,7 @@ classdef TestLoadDataset < matlab.unittest.TestCase
             );
 
         non_numeric = struct(...
+            "empty", [], ...
             "char_array", 'a char array', ...
             "string", "a string", ...
             "string_array", ["string array 1", "string array 2"], ...
@@ -58,6 +63,12 @@ classdef TestLoadDataset < matlab.unittest.TestCase
             "leading_digit", "1name", ...
             "space", "name 1", ...
             "too_long", repmat('a', 1, 100) ...
+            );
+
+        non_numeric_vector = struct(...
+            "empty", [], ...
+            "matrix", [1, 2; 3, 4], ...
+            "cell_array", {{1, 2, 3}} ...
             );
     end
 
@@ -189,19 +200,23 @@ classdef TestLoadDataset < matlab.unittest.TestCase
                 'The interdependent parameter set 1 is not properly defined!');
         end
 
-        function testSingleParameterContent1(testCase, non_text_scalar)
-            % Test one interdependent parameter
+        function testParameterNames1(testCase, non_text_scalar)
+            % Test one interdependent parameter names
             ds_matrix_ = testCase.ds_matrix;
             ds_matrix_.Lumerical_dataset.parameters{1}(1).variable = non_text_scalar;
             testCase.verifyErrorMessage(@() loadLumDataset(ds_matrix_), ...
-                'The interdependent parameter set 1 is not properly defined!');
+                'The interdependent parameter set 1 names cannot be resolved!');
+            ds_matrix_ = testCase.ds_matrix;
+            ds_matrix_.Lumerical_dataset.parameters{1}(1).name = non_text_scalar;
+            testCase.verifyErrorMessage(@() loadLumDataset(ds_matrix_), ...
+                'The interdependent parameter set 1 names cannot be resolved!');
         end
 
-        function testSingleParameterContent2(testCase, non_var_name)
+        function testParameterNames2(testCase, non_var_name)
             ds_matrix_ = testCase.ds_matrix;
             ds_matrix_.Lumerical_dataset.parameters{1}(1).variable = non_var_name;
             testCase.verifyErrorMessage(@() loadLumDataset(ds_matrix_), ...
-                'The interdependent parameter set 1 is not properly defined!');
+                'The interdependent parameter set 1 names cannot be resolved!');
         end
 
         function testIllegalCharacters(testCase)
@@ -216,6 +231,150 @@ classdef TestLoadDataset < matlab.unittest.TestCase
             ds_matrix_rm = rmfield(ds_matrix_, parameter_name);
             testCase.verifyErrorMessage(@() loadLumDataset(ds_matrix_rm), ...
                 ['Parameter field ''', parameter_name, ''' data not found!']);
+        end
+
+        function testParameterNumericVector(testCase, non_numeric_vector)
+            % Test parameter data format (non-empty numeric vector)
+            ds_matrix_ = testCase.ds_matrix;
+            parameter_name = ds_matrix_.Lumerical_dataset.parameters{1}(1).variable;
+            ds_matrix_.(parameter_name) = non_numeric_vector;
+            testCase.verifyErrorMessage(@() loadLumDataset(ds_matrix_), ...
+                ['Parameter field ''', parameter_name, ''' data is not a numeric vector!']);
+        end
+
+        function testParameterMonotonic(testCase)
+            % Test monotonic parameter data
+            testCase.verifyFail();
+        end
+
+        function testInterdepParameterSameLength(testCase)
+            % Test interdependent parameter data same length
+            ds_matrix_ = testCase.ds_matrix;
+            if length(ds_matrix_.Lumerical_dataset.parameters{1}) == 1 % make sure it has interdependent parameter
+                error("Test error: The testing dataset do not have an interdependent parameter set at the 1st index! Cannot proceed with this test.");
+            end
+            parameter_name = ds_matrix_.Lumerical_dataset.parameters{1}(1).variable;
+            ds_matrix_.(parameter_name)(end+1) = 5; % append a value at the end of the data
+            testCase.verifyErrorMessage(@() loadLumDataset(ds_matrix_), ...
+                'Interdependent parameters data do not have the same length!');
+        end
+    end
+
+    methods (Test, TestTags = {'attributes'})
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        % Only test MATRIX dataset
+        function testAttributesFieldType1(testCase, non_struct)
+            % Test 'attributes' field is struct and has 'variable' and
+            % 'name'fields
+            ds_matrix_ = testCase.ds_matrix;
+            ds_matrix_.Lumerical_dataset.attributes = non_struct;
+            testCase.verifyErrorMessage(@() loadLumDataset(ds_matrix_), ...
+                'The attributes are not properly defined!');
+        end
+
+        function testAttributesFieldType2(testCase)
+            ds_matrix_rm = testCase.ds_matrix;
+            ds_matrix_rm.Lumerical_dataset.attributes = rmfield(ds_matrix_rm.Lumerical_dataset.attributes, 'variable');
+            testCase.verifyErrorMessage(@() loadLumDataset(ds_matrix_rm), ...
+                'The attributes are not properly defined!');
+            ds_matrix_rm = testCase.ds_matrix;
+            ds_matrix_rm.Lumerical_dataset.attributes = rmfield(ds_matrix_rm.Lumerical_dataset.attributes, 'name');
+            testCase.verifyErrorMessage(@() loadLumDataset(ds_matrix_rm), ...
+                'The attributes are not properly defined!');
+        end
+
+        function testAttributeNames1(testCase, non_text_scalar)
+            % Test attribute names
+            ds_matrix_ = testCase.ds_matrix;
+            ds_matrix_.Lumerical_dataset.attributes(1).variable = non_text_scalar;
+            testCase.verifyErrorMessage(@() loadLumDataset(ds_matrix_), ...
+                'One or more attribute names cannot be resolved!');
+            ds_matrix_ = testCase.ds_matrix;
+            ds_matrix_.Lumerical_dataset.attributes(1).name = non_text_scalar;
+            testCase.verifyErrorMessage(@() loadLumDataset(ds_matrix_), ...
+                'One or more attribute names cannot be resolved!');
+        end
+
+        function testAttributeNames2(testCase, non_var_name)
+            ds_matrix_ = testCase.ds_matrix;
+            ds_matrix_.Lumerical_dataset.attributes(1).variable = non_var_name;
+            testCase.verifyErrorMessage(@() loadLumDataset(ds_matrix_), ...
+                'One or more attribute names cannot be resolved!');
+        end
+
+        function testAttributesIllegalCharacters(testCase)
+            %%%%%%%%%%%%%%%%% Same warning problem
+            testCase.verifyFail;
+        end
+
+        function testAttributeInDataset(testCase)
+            % Test attribute data exists
+            ds_matrix_ = testCase.ds_matrix;
+            attribute_name = ds_matrix_.Lumerical_dataset.attributes(1).variable;
+            ds_matrix_rm = rmfield(ds_matrix_, attribute_name);
+            testCase.verifyErrorMessage(@() loadLumDataset(ds_matrix_rm), ...
+                ['Attribute field ''', attribute_name, ''' data not found!']);
+        end
+
+        function testAttributeDataNumeric(testCase, non_numeric)
+            % Test attribute data format (non-empty numeric)
+            ds_matrix_ = testCase.ds_matrix;
+            attribute_name = ds_matrix_.Lumerical_dataset.attributes(1).variable;
+            ds_matrix_.(attribute_name) = non_numeric;
+            testCase.verifyErrorMessage(@() loadLumDataset(ds_matrix_), ...
+                ['Attribute field ''', attribute_name, ''' data must be numeric!']);
+        end
+
+        function testAttributeDataSize1(testCase)
+            % Test attribute data size
+            % 1st dimension (xyz)
+            ds_matrix_ = testCase.ds_matrix;
+            attribute_name = ds_matrix_.Lumerical_dataset.attributes(1).variable;
+            sz = size(ds_matrix_.(attribute_name));
+            sz(1) = sz(1) + 1;
+            ds_matrix_.(attribute_name) = rand(sz);
+            testCase.verifyErrorMessage(@() loadLumDataset(ds_matrix_), ...
+                ['Unexpected size for attribute field ''', attribute_name, ''' data at 1st dimension!']);
+            ds_recti_ = testCase.ds_recti;
+            attribute_name = ds_recti_.Lumerical_dataset.attributes(1).variable;
+            sz = size(ds_recti_.(attribute_name));
+            sz(1) = sz(1) + 1;
+            ds_recti_.(attribute_name) = rand(sz);
+            testCase.verifyErrorMessage(@() loadLumDataset(ds_recti_), ...
+                ['Unexpected size for attribute field ''', attribute_name, ''' data at 1st dimension!']);
+        end
+
+        function testAttributeDataSize2(testCase)
+            % neither scalar nor vector
+            ds_matrix_ = testCase.ds_matrix;
+            attribute_name = ds_matrix_.Lumerical_dataset.attributes(1).variable;
+            sz = size(ds_matrix_.(attribute_name));
+            sz(2) = 2;
+            ds_matrix_.(attribute_name) = rand(sz);
+            testCase.verifyErrorMessage(@() loadLumDataset(ds_matrix_), ...
+                ['Unexpected size for attribute field ''', attribute_name, ''' data at 2nd dimension!']);
+        end
+
+        function testAttributeDataSize3(testCase)
+            % Test first parameter dimension (3rd)
+            ds_matrix_ = testCase.ds_matrix;
+            attribute_name = ds_matrix_.Lumerical_dataset.attributes(1).variable;
+            sz = size(ds_matrix_.(attribute_name));
+            sz(3) = sz(3) + 1;
+            ds_matrix_.(attribute_name) = rand(sz);
+            testCase.verifyErrorMessage(@() loadLumDataset(ds_matrix_), ...
+                ['Unexpected size for attribute field ''', attribute_name, ''' data at dimension 3 !']);
+        end
+
+        function testAttributeDataSize4(testCase)
+            % Test two many dimensions for attribute data
+            ds_matrix_ = testCase.ds_matrix;
+            attribute_name = ds_matrix_.Lumerical_dataset.attributes(1).variable;
+            sz = size(ds_matrix_.(attribute_name));
+            sz = [sz, 5];
+            ds_matrix_.(attribute_name) = rand(sz);
+            testCase.verifyErrorMessage(@() loadLumDataset(ds_matrix_), ...
+                ['Too many dimensions for attribute field ''', attribute_name, ''' data!']);
         end
     end
 
