@@ -9,26 +9,21 @@ function [parameters_info, attributes_info, attributes_component, xyz] = loadLum
 % If a parameter vector contains duplicate element or is not monotonic, no
 % error/warning will be thrown. However, you cannot make 2D plot on that
 % parameter.
+% If a parameter or positional vectors (x,y,z) has complex data, it will be
+% taken real part when converting.
+% A parameter data does not need to be sorted.
+% An empty matrix dataset is not accepted.
+% A dataset without any attribute is not accepted.
 
 % Do not pre-assign enough memory. Arrays are small anyways
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Problems not solved %%%%%%%%%%%%%%%%
 % Check duplication???
-% Check x, y, z?????????
+% Check x, y, z????????? (xyz have to be either all there or not there)
 % Only supports scalar or vector attributes (tensor?)
-% Sort the parameters?
-% Zero parameters, zero attributes???
-% parameters complex?
-% Cannot be empty
-% Reject 2D plot if parameter is not monotonic, or has duplicates
-% Remove checking of monotonic or duplicates
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% Do not allow no attribute
 % Invalid (parameter, attribute) names, like "1", still passes
 % data can have NaN? Inf?
 % May need to label attribute scalar or vector somewhere??????
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% values can be complex (parameters, xyz)
-% Complex parameters reduction
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % First dimension: rectilinear dataset x*y*z
@@ -42,7 +37,8 @@ validateStructScalar(lum_dataset, "Input dataset must be a struct scalar!");
 validateFieldInStruct(lum_dataset, 'Lumerical_dataset', "Input dataset does not have the field 'Lumerical_dataset'!");
 validateStructScalar(lum_dataset.Lumerical_dataset, "Field 'Lumerical_dataset' is not a struct scalar!");
 % Check 'attribute' field
-validateFieldInStruct(lum_dataset.Lumerical_dataset, 'attributes', "Field 'Lumerical_dataset' does not have the 'attributes' subfield!");
+validateFieldInStruct(lum_dataset.Lumerical_dataset, 'attributes', "Field 'Lumerical_dataset' does not have the 'attributes' subfield! " + ...
+    "Maybe the dataset does not have any attribute. This type of dataset is not supported.");
 % check the contents in 'attributes' later
 % Check 'parameters' field
 validateFieldInStruct(lum_dataset.Lumerical_dataset, 'parameters', "Field 'Lumerical_dataset' does not have the 'parameters' subfield!")
@@ -82,7 +78,7 @@ if isequal(dataset_type, 'rectilinear')
     xyz.x = real(lum_dataset.x(:)); % (vectorize) convert to column vector
     xyz.y = real(lum_dataset.y(:));
     xyz.z = real(lum_dataset.z(:));
-    xyz.size = [length(lum_dataset.x), length(lum_dataset.y), length(lum_dataset.z)];
+    xyz.size = [length(xyz.x), length(xyz.y), length(xyz.z)];
     % Remove x,y,z field from the dataset. This ensures that if other
     % parameters have these names, an error will be issued when we try to
     % look for them in the dataset
@@ -121,8 +117,8 @@ for i = 1:length(parameters)
         interdep_parameter_name = parameter(j).variable;
         parameter_names(j) = interdep_parameter_name; % char array also works
         validateTextScalar(parameter(j).name, "The interdependent parameter set " + i + " names cannot be resolved!");
-        if ~isvarname(parameter(j).variable) % must be legal variable name
-            error("The interdependent parameter set " + i + " names cannot be resolved!");
+        if ~isvarname(interdep_parameter_name) % must be legal variable name
+            error("The interdependent parameter set " + i + " names are not valid variable names!");
         end
         % Illegal characters in the names are converted to '_'
         if ~isequal(parameter(j).variable, parameter(j).name)
@@ -137,6 +133,12 @@ for i = 1:length(parameters)
         validateNonEmptyNumericVector(value, ... %% instead check iscolumn?
             "Parameter field '" + interdep_parameter_name + "' data is not a numeric vector!");
         value = value(:); % convert to column vector, if applicable
+        % Remove complex portion
+        if any(imag(value)) % has imaginary part?
+            warning("Parameter '" + interdep_parameter_name + ...
+                "' data is complex! Takes the real part and proceed.");
+            value = real(value);
+        end
         % Remove this field from the dataset, prevent duplicate names
         lum_dataset = rmfield(lum_dataset, interdep_parameter_name);
         parameter_length(j) = length(value);
@@ -167,7 +169,7 @@ for i = 1:length(attributes)
     validateTextScalar(attribute.variable, "One or more attribute names cannot be resolved!");
     validateTextScalar(attribute.name, "One or more attribute names cannot be resolved!");
     if ~isvarname(attribute.variable)
-        error("One or more attribute names cannot be resolved!");
+        error("One or more attribute names are not valid variable names!");
     end
     if ~isequal(attribute.variable, attribute.name)
         warning("Attribute name '" + attribute.name + ...

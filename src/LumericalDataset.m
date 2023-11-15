@@ -18,6 +18,11 @@ classdef (Abstract) LumericalDataset < matlab.mixin.Copyable
             % Initialize the dataset object and choose the correct subclass
             % to invoke based on the type of the dataset
 
+            % No parameter or attribute (empty matrix dataset)
+            if isequal(lum_dataset, 'data type not supported')
+                error("Empty dataset is not supported!");
+            end
+            
             %%%%%%%%%%%%%%%%%%%%%%%%
             % Do you check the input NOW???
             % This is problematic because it assumes the input is a struct

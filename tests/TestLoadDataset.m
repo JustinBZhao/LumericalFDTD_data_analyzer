@@ -72,6 +72,45 @@ classdef TestLoadDataset < matlab.unittest.TestCase
             );
     end
 
+    methods (Test, TestTags = {'Golden master'})
+        function testCorrectDataset(testCase)
+            % Test correct dataset output
+            golden = load("golden_master_normal_dataset.mat");
+            testCase.verifyEqual(LumericalDataset.createObject(testCase.ds_matrix), golden.dataset_matrix);
+            testCase.verifyEqual(LumericalDataset.createObject(testCase.ds_recti), golden.dataset_recti);
+        end
+    end
+
+    methods (Test, TestTags = {'Special dataset'})
+        function testEmptyDataset(testCase)
+            ds_test = load("special_test_dataset.mat", 'ds_matrix_empty');
+            testCase.verifyErrorMessage(@() LumericalDataset.createObject(ds_test.ds_matrix_empty), ...
+                'Empty dataset is not supported!');
+        end
+
+        function testDatasetNoAttribute(testCase)
+            % Test dataset with no attribute triggers this error
+            ds_test = load("special_test_dataset.mat", 'ds_matrix_no_attribute', 'ds_recti_no_attribute', 'ds_recti_xyzonly');
+            testCase.verifyErrorMessage(@() loadLumDataset(ds_test.ds_matrix_no_attribute), ...
+                ['Field ''Lumerical_dataset'' does not have the ''attributes'' subfield! ' ...
+                'Maybe the dataset does not have any attribute. This type of dataset is not supported.']);
+            testCase.verifyErrorMessage(@() loadLumDataset(ds_test.ds_recti_no_attribute), ...
+                ['Field ''Lumerical_dataset'' does not have the ''attributes'' subfield! ' ...
+                'Maybe the dataset does not have any attribute. This type of dataset is not supported.']);
+            testCase.verifyErrorMessage(@() loadLumDataset(ds_test.ds_recti_xyzonly), ...
+                ['Field ''Lumerical_dataset'' does not have the ''attributes'' subfield! ' ...
+                'Maybe the dataset does not have any attribute. This type of dataset is not supported.']);
+        end
+
+        function testDatasetComplexMuldimParameter(testCase)
+            % Test generated real-valued parameters (matrix dataset) and
+            % warning generation
+            % Test multi-dimensional parameter (x,y,z) get correctly
+            % converted, size correctly calculated
+            testCase.verifyFail;
+        end
+    end
+
     methods (Test, TestTags = {'1'})
         function testDatasetType(testCase, non_struct_scalar)
             % Test that non-struct-scalar dataset type throws an error.
@@ -99,7 +138,8 @@ classdef TestLoadDataset < matlab.unittest.TestCase
             ds_attributes_rm = dataset;
             ds_attributes_rm.Lumerical_dataset = rmfield(ds_attributes_rm.Lumerical_dataset, "attributes");
             testCase.verifyErrorMessage(@() loadLumDataset(ds_attributes_rm), ...
-                'Field ''Lumerical_dataset'' does not have the ''attributes'' subfield!');
+                ['Field ''Lumerical_dataset'' does not have the ''attributes'' subfield! ' ...
+                'Maybe the dataset does not have any attribute. This type of dataset is not supported.']);
         end
 
         function testDatasetFields4(testCase, dataset)
@@ -216,7 +256,7 @@ classdef TestLoadDataset < matlab.unittest.TestCase
             ds_matrix_ = testCase.ds_matrix;
             ds_matrix_.Lumerical_dataset.parameters{1}(1).variable = non_var_name;
             testCase.verifyErrorMessage(@() loadLumDataset(ds_matrix_), ...
-                'The interdependent parameter set 1 names cannot be resolved!');
+                'The interdependent parameter set 1 names are not valid variable names!');
         end
 
         function testIllegalCharacters(testCase)
@@ -240,11 +280,6 @@ classdef TestLoadDataset < matlab.unittest.TestCase
             ds_matrix_.(parameter_name) = non_numeric_vector;
             testCase.verifyErrorMessage(@() loadLumDataset(ds_matrix_), ...
                 ['Parameter field ''', parameter_name, ''' data is not a numeric vector!']);
-        end
-
-        function testParameterMonotonic(testCase)
-            % Test monotonic parameter data
-            testCase.verifyFail();
         end
 
         function testInterdepParameterSameLength(testCase)
@@ -299,7 +334,7 @@ classdef TestLoadDataset < matlab.unittest.TestCase
             ds_matrix_ = testCase.ds_matrix;
             ds_matrix_.Lumerical_dataset.attributes(1).variable = non_var_name;
             testCase.verifyErrorMessage(@() loadLumDataset(ds_matrix_), ...
-                'One or more attribute names cannot be resolved!');
+                'One or more attribute names are not valid variable names!');
         end
 
         function testAttributesIllegalCharacters(testCase)
