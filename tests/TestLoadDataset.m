@@ -102,12 +102,16 @@ classdef TestLoadDataset < matlab.unittest.TestCase
                 'Maybe the dataset does not have any attribute. This type of dataset is not supported.']);
         end
 
-        function testDatasetComplexMuldimParameter(testCase)
-            % Test generated real-valued parameters (matrix dataset) and
-            % warning generation
-            % Test multi-dimensional parameter (x,y,z) get correctly
-            % converted, size correctly calculated
-            testCase.verifyFail;
+        function testDatasetComplexParameter(testCase)
+            % Test warning from complex-valued parameter data in both
+            % matrix and rectilinear dataset. xyz not tested here. No way
+            % to test multidimensional parameter data either, because it is
+            % already converted during MATLAB export.
+            ds_test = load("special_test_dataset.mat");
+            testCase.verifyWarning(@() loadLumDataset(ds_test.ds_matrix_complex), ...
+                "Parameter:DataIsComplex");
+            testCase.verifyWarning(@() loadLumDataset(ds_test.ds_recti_complex), ...
+                "Parameter:DataIsComplex");
         end
     end
 
@@ -193,28 +197,29 @@ classdef TestLoadDataset < matlab.unittest.TestCase
                 'z data must be a numeric vector!');
         end
 
-        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-        % You cannot test a warning unless you can terminate the execution
-        % at the point of warning generation
-        function testBadXYZMuldim(testCase)
-            % Test bad x,y,z values: multi-dimensional matrix
-            % ds_recti_ = testCase.ds_recti;
-            % ds_recti_.x = rand(3, 5, 2);
-            % testCase.verifyWarning(@() loadLumDataset(ds_recti_), ...
-            %     'TestID');
-            testCase.verifyFail;
+        function testXYZDataMuldim(testCase)
+            % Test x,y,z values be multi-dimensional matrix: throw a
+            % warning
+            ds_test = load("special_test_dataset.mat");
+            testCase.verifyWarning(@() loadLumDataset(ds_test.ds_recti_muldimxyz), ...
+                "PositionalVector:DataIsMuldim");
         end
 
-        function testBadXYZImag(testCase)
-            % ds_recti_ = testCase.ds_recti;
-            % ds_recti_.x = complex(ds_recti_.x); %%%%%%%%%%%%% test??
-            testCase.verifyFail;
+        function testXYZDataImag(testCase)
+            % Test x,y,z values be complex: throw a warning
+            ds_test = load("special_test_dataset.mat");
+            testCase.verifyWarning(@() loadLumDataset(ds_test.ds_recti_complexxyz), ...
+                "PositionalVector:DataIsComplex");
         end
 
         function testRectiParameterNameClash(testCase)
             % Test rectilinear dataset parameter name (x,y,z) will throw an
             % error
-            testCase.verifyFail;
+            ds_recti_ = testCase.ds_recti;
+            ds_recti_.Lumerical_dataset.attributes(1).variable = 'x';
+            ds_recti_.Lumerical_dataset.attributes(1).name = 'x';
+            testCase.verifyErrorMessage(@() loadLumDataset(ds_recti_), ...
+                'Attribute field ''x'' data not found!');
         end
     end
 
@@ -280,9 +285,12 @@ classdef TestLoadDataset < matlab.unittest.TestCase
                 ['Parameter field ''', parameter_name, ''' data not found!']);
         end
 
-        function testIllegalCharacters(testCase)
-            %%%%%%%%%%%%%%%%% Same warning problem
-            testCase.verifyFail;
+        function testParameterNameIllegalCharacters(testCase)
+            ds_matrix_ = testCase.ds_matrix;
+            parameter_name = ds_matrix_.Lumerical_dataset.parameters{1}(1).variable;
+            ds_matrix_.Lumerical_dataset.parameters{1}(1).name = char(parameter_name + " ");
+            testCase.verifyWarning(@() loadLumDataset(ds_matrix_), ...
+                "Parameter:NameHasIllegalCharacters");
         end
 
         function testParameterInDataset(testCase)
@@ -305,7 +313,16 @@ classdef TestLoadDataset < matlab.unittest.TestCase
 
         function testParameterDataNaNInf(testCase)
             % Test parameter data with NaN or Inf
-            testCase.verifyFail();
+            ds_matrix_ = testCase.ds_matrix;
+            parameter_name = ds_matrix_.Lumerical_dataset.parameters{1}(1).variable;
+            ds_matrix_.(parameter_name)(1) = NaN;
+            testCase.verifyWarning(@() loadLumDataset(ds_matrix_), ...
+                "Parameter:DataHasInvalidElement");
+            ds_matrix_ = testCase.ds_matrix;
+            parameter_name = ds_matrix_.Lumerical_dataset.parameters{1}(1).variable;
+            ds_matrix_.(parameter_name)(1) = -Inf;
+            testCase.verifyWarning(@() loadLumDataset(ds_matrix_), ...
+                "Parameter:DataHasInvalidElement");
         end
 
         function testInterdepParameterSameLength(testCase)
@@ -364,8 +381,11 @@ classdef TestLoadDataset < matlab.unittest.TestCase
         end
 
         function testAttributesIllegalCharacters(testCase)
-            %%%%%%%%%%%%%%%%% Same warning problem
-            testCase.verifyFail;
+            ds_matrix_ = testCase.ds_matrix;
+            attribute_name = ds_matrix_.Lumerical_dataset.attributes(1).variable;
+            ds_matrix_.Lumerical_dataset.attributes(1).name = char(attribute_name + " ");
+            testCase.verifyWarning(@() loadLumDataset(ds_matrix_), ...
+                "Attribute:NameHasIllegalCharacters");
         end
 
         function testAttributeInDataset(testCase)
@@ -388,7 +408,16 @@ classdef TestLoadDataset < matlab.unittest.TestCase
 
         function testAttributeDataNaNInf(testCase)
             % Test attribute data with NaN or Inf
-            testCase.verifyFail();
+            ds_matrix_ = testCase.ds_matrix;
+            attribute_name = ds_matrix_.Lumerical_dataset.attributes(1).variable;
+            ds_matrix_.(attribute_name)(1) = NaN;
+            testCase.verifyWarning(@() loadLumDataset(ds_matrix_), ...
+                "Attribute:DataHasInvalidElement");
+            ds_matrix_ = testCase.ds_matrix;
+            attribute_name = ds_matrix_.Lumerical_dataset.attributes(1).variable;
+            ds_matrix_.(attribute_name)(1) = -Inf;
+            testCase.verifyWarning(@() loadLumDataset(ds_matrix_), ...
+                "Attribute:DataHasInvalidElement");
         end
 
         function testAttributeDataSize1(testCase)

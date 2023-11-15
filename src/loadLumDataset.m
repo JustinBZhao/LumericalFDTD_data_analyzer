@@ -54,10 +54,12 @@ if isequal(dataset_type, 'rectilinear')
             error(axis + " data must be a numeric vector!");
         end
         if ~isvector(lum_dataset.(axis)) % 2+ dimensional matrix?
-            warning("Parameter " + axis + " is multi-dimensional! Stretched to one dimension!");
+            warning("PositionalVector:DataIsMuldim", ...
+                "Parameter " + axis + " is multi-dimensional! Stretched to one dimension!");
         end
         if any(imag(lum_dataset.(axis))) % has imaginary part?
-            warning("Parameter " + axis + " is complex! Takes the real part and proceed.");
+            warning("PositionalVector:DataIsComplex", ...
+                "Parameter " + axis + " is complex! Takes the real part and proceed.");
         end
     end
     xyz.x = real(lum_dataset.x(:)); % (vectorize) convert to column vector
@@ -102,7 +104,7 @@ for i = 1:length(parameters)
         end
         % Illegal characters in the names are converted to '_'
         if ~isequal(parameter(j).variable, parameter(j).name)
-            warning("Parameter name '" + parameter(j).name + ...
+            warning("Parameter:NameHasIllegalCharacters", "Parameter name '" + parameter(j).name + ...
                 "' contains illegal characters. Converted to '" + parameter(j).variable + "'.");
         end
         validateFieldInStruct(lum_dataset, interdep_parameter_name, ...
@@ -115,12 +117,12 @@ for i = 1:length(parameters)
         value = value(:); % convert to column vector, if applicable
         % Remove complex portion
         if any(imag(value)) % has imaginary part?
-            warning("Parameter '" + interdep_parameter_name + ...
+            warning("Parameter:DataIsComplex", "Parameter '" + interdep_parameter_name + ...
                 "' data is complex! Takes the real part and proceed.");
             value = real(value);
         end
         if any(isnan(value)) || any(isinf(value)) % real part has NaN or Inf?
-            warning("Parameter '" + interdep_parameter_name + ...
+            warning("Parameter:DataHasInvalidElement", "Parameter '" + interdep_parameter_name + ...
                 "' data contains invalid (NaN or Inf) elements! Something to keep in mind.");
         end
         % Remove this field from the dataset, prevent duplicate names
@@ -156,7 +158,7 @@ for i = 1:length(attributes)
         error("One or more attribute names are not valid variable names!");
     end
     if ~isequal(attribute.variable, attribute.name)
-        warning("Attribute name '" + attribute.name + ...
+        warning("Attribute:NameHasIllegalCharacters", "Attribute name '" + attribute.name + ...
             "' contains illegal characters. Converted to '" + attribute.variable + "'.");
     end
     % Check attribute data exists
@@ -168,7 +170,7 @@ for i = 1:length(attributes)
     end
     % Give warning if attribute data contains NaN or Inf
     if any(isnan(attribute_value), 'all') || any(isinf(attribute_value), 'all')
-        warning("Attribute field '" + attribute.variable + ...
+        warning("Attribute:DataHasInvalidElement", "Attribute field '" + attribute.variable + ...
             "' data contains invalid (NaN or Inf) elements! Something to keep in mind.");
     end
     % Check first dimension: should equal to multiplied x,y,z lengths
