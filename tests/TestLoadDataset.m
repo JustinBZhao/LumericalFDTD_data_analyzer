@@ -210,6 +210,12 @@ classdef TestLoadDataset < matlab.unittest.TestCase
             % ds_recti_.x = complex(ds_recti_.x); %%%%%%%%%%%%% test??
             testCase.verifyFail;
         end
+
+        function testRectiParameterNameClash(testCase)
+            % Test rectilinear dataset parameter name (x,y,z) will throw an
+            % error
+            testCase.verifyFail;
+        end
     end
 
     methods (Test, TestTags = {'parameters'})
@@ -259,6 +265,21 @@ classdef TestLoadDataset < matlab.unittest.TestCase
                 'The interdependent parameter set 1 names are not valid variable names!');
         end
 
+        function testDuplicateParameterName(testCase)
+            % Test duplicate parameter name, should give parameter data not
+            % found error
+            ds_matrix_ = testCase.ds_matrix;
+            % Test dataset should have at least 2 parameters
+            if length(ds_matrix_.Lumerical_dataset.parameters) < 2
+                error("Not enough number of parameters for testing!");
+            end
+            parameter_name = ds_matrix_.Lumerical_dataset.parameters{1}(1).variable;
+            ds_matrix_.Lumerical_dataset.parameters{2}(1).variable = parameter_name;
+            ds_matrix_.Lumerical_dataset.parameters{2}(1).name = parameter_name;
+            testCase.verifyErrorMessage(@() loadLumDataset(ds_matrix_), ...
+                ['Parameter field ''', parameter_name, ''' data not found!']);
+        end
+
         function testIllegalCharacters(testCase)
             %%%%%%%%%%%%%%%%% Same warning problem
             testCase.verifyFail;
@@ -280,6 +301,11 @@ classdef TestLoadDataset < matlab.unittest.TestCase
             ds_matrix_.(parameter_name) = non_numeric_vector;
             testCase.verifyErrorMessage(@() loadLumDataset(ds_matrix_), ...
                 ['Parameter field ''', parameter_name, ''' data is not a numeric vector!']);
+        end
+
+        function testParameterDataNaNInf(testCase)
+            % Test parameter data with NaN or Inf
+            testCase.verifyFail();
         end
 
         function testInterdepParameterSameLength(testCase)
@@ -358,6 +384,11 @@ classdef TestLoadDataset < matlab.unittest.TestCase
             ds_matrix_.(attribute_name) = non_numeric;
             testCase.verifyErrorMessage(@() loadLumDataset(ds_matrix_), ...
                 ['Attribute field ''', attribute_name, ''' data must be numeric!']);
+        end
+
+        function testAttributeDataNaNInf(testCase)
+            % Test attribute data with NaN or Inf
+            testCase.verifyFail();
         end
 
         function testAttributeDataSize1(testCase)

@@ -15,21 +15,6 @@ function [parameters_info, attributes_info, attributes_component, xyz] = loadLum
 % An empty matrix dataset is not accepted.
 % A dataset without any attribute is not accepted.
 
-% Do not pre-assign enough memory. Arrays are small anyways
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Problems not solved %%%%%%%%%%%%%%%%
-% Check duplication???
-% Check x, y, z????????? (xyz have to be either all there or not there)
-% Only supports scalar or vector attributes (tensor?)
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% Invalid (parameter, attribute) names, like "1", still passes
-% data can have NaN? Inf?
-% May need to label attribute scalar or vector somewhere??????
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% First dimension: rectilinear dataset x*y*z
-% Second dimension: if vector, 3
-% Remaining dimensions: parameters
-
 % Input dataset has to be a struct scalar
 validateStructScalar(lum_dataset, "Input dataset must be a struct scalar!");
 
@@ -87,13 +72,8 @@ if isequal(dataset_type, 'rectilinear')
     lum_dataset = rmfield(lum_dataset, 'z');
 end
 
-% Read parameters
+% Read parameters from the dataset
 % Load all parameters names and organize them
-% Will group interdependent parameters together
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% if rectilinear, the names can't be x, y, z
-% check parameter values
-
 parameters = lum_dataset.Lumerical_dataset.parameters;
 if ~(iscell(parameters) && iscolumn(parameters))
     error("Field 'Lumerical_dataset.parameters' should be a cell column vector!");
@@ -139,6 +119,10 @@ for i = 1:length(parameters)
                 "' data is complex! Takes the real part and proceed.");
             value = real(value);
         end
+        if any(isnan(value)) || any(isinf(value)) % real part has NaN or Inf?
+            warning("Parameter '" + interdep_parameter_name + ...
+                "' data contains invalid (NaN or Inf) elements! Something to keep in mind.");
+        end
         % Remove this field from the dataset, prevent duplicate names
         lum_dataset = rmfield(lum_dataset, interdep_parameter_name);
         parameter_length(j) = length(value);
@@ -181,6 +165,11 @@ for i = 1:length(attributes)
     % Verify attribute value non-empty numeric
     if ~isnumeric(attribute_value) || isempty(attribute_value)
         error("Attribute field '" + attribute.variable + "' data must be numeric!");
+    end
+    % Give warning if attribute data contains NaN or Inf
+    if any(isnan(attribute_value), 'all') || any(isinf(attribute_value), 'all')
+        warning("Attribute field '" + attribute.variable + ...
+            "' data contains invalid (NaN or Inf) elements! Something to keep in mind.");
     end
     % Check first dimension: should equal to multiplied x,y,z lengths
     if isequal(dataset_type, 'rectilinear')
