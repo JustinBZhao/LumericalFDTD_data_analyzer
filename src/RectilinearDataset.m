@@ -12,9 +12,17 @@ classdef RectilinearDataset < LumericalDataset
         function obj = RectilinearDataset(lum_dataset)
             % Call superclass constructor
             obj = obj@LumericalDataset(lum_dataset);
-            %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-            % This is very stupid
-            [~, ~, ~, xyz] = loadLumDataset(lum_dataset);
+
+            [~, lum_dataset] = LumericalDataset.parseParameters(lum_dataset);
+            % First load parameters
+            dataset_type = LumericalDataset.parseDatasetStructure(lum_dataset);
+            if dataset_type == "rectilinear"
+                [xyz, lum_dataset] = LumericalDataset.parseXYZ(lum_dataset);
+            else
+                xyz = struct;
+            end
+            [obj.attributes, obj.attributes_component] = LumericalDataset.parseAttributes(lum_dataset, obj.parameters, dataset_type, prod(xyz.size));
+            obj.num_attributes = length(fieldnames(obj.attributes));
             obj.x = xyz.x;
             obj.y = xyz.y;
             obj.z = xyz.z;

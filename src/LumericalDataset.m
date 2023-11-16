@@ -2,19 +2,21 @@ classdef (Abstract) LumericalDataset < matlab.mixin.Copyable
     % Lumerical dataset base class
 
     properties (SetAccess = protected)
-        attributes
         parameters
+        num_parameters
+        parameters_indexes % selected the current parameter slice indexes
+
+        attributes % common data but depends on the type of subclass
         attributes_component % select the current attribute component (x, y, z)
         % NaN-scalar 0-magnitude 1-x 2-y 3-z
         num_attributes
-        parameters_indexes % selected the current parameter slice indexes
-        num_parameters
+        
+        
     end
 
     methods (Static)
-        %%%%%%%%%%%%%%%%%%%%%%%%%%%
-        % Make only available in base class?
         function obj = createObject(lum_dataset)
+            % Factory method
             % Initialize the dataset object and choose the correct subclass
             % to invoke based on the type of the dataset
 
@@ -22,13 +24,12 @@ classdef (Abstract) LumericalDataset < matlab.mixin.Copyable
             if isequal(lum_dataset, 'data type not supported')
                 error("Empty dataset is not supported!");
             end
-            
-            %%%%%%%%%%%%%%%%%%%%%%%%
-            % Do you check the input NOW???
-            % This is problematic because it assumes the input is a struct
-            if isfield(lum_dataset.Lumerical_dataset, 'geometry')
+
+            % Decide which class to instantiate
+            dataset_type = LumericalDataset.parseDatasetStructure(lum_dataset);
+            if dataset_type == "rectilinear"
                 obj = RectilinearDataset(lum_dataset);
-            else
+            elseif dataset_type == "matrix"
                 obj = MatrixDataset(lum_dataset);
             end
         end
@@ -40,21 +41,12 @@ classdef (Abstract) LumericalDataset < matlab.mixin.Copyable
             % Create a MATLAB data structure of a matrix dataset from the
             %   Lumerical exported MATLAB data
 
-            %%%%%%%%%%%%%%%%%
-            % Check the input is actually a lumerical dataset?
-            % Duplicate parameter and attribute names?
-            % Complex values?
-            % Design assigning xyz
-
             % First load parameters
-            [obj.parameters, obj.attributes, obj.attributes_component, ~] = loadLumDataset(lum_dataset);
-            obj.num_attributes = length(fieldnames(obj.attributes));
-            % If scalar, give NaN. If vector, assign 1.
-
-            obj.num_parameters = size(obj.parameters, 1);
+            [parameters_info, lum_dataset] = LumericalDataset.parseParameters(lum_dataset);
+            obj.parameters = parameters_info;
+            obj.num_parameters = size(obj.parameters, 1);           
             % Initialize to all 1 (first value for each parameter)
             obj.parameters_indexes = ones(obj.num_parameters, 1);
-            % obj.num_free_parameters = obj.num_parameters;
         end
 
         function showInformation(obj)
@@ -368,7 +360,7 @@ classdef (Abstract) LumericalDataset < matlab.mixin.Copyable
     end
 
     methods (Static, Access = protected)
-        % Helper functions to be shared with derived classes
+        % Helper functions to be shared with base and derived classes
         function validateTextScalar(input, errmsg)
             % Validate input as text scalar and throw if not
             if ~(ischar(input) && isrow(input)) && ~isStringScalar(input)
@@ -376,8 +368,6 @@ classdef (Abstract) LumericalDataset < matlab.mixin.Copyable
             end
         end
 
-        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-        % Not used
         function validateStructScalar(input, errmsg)
             % Validate input as struct scalar and throw if not
             if ~isstruct(input) || ~isscalar(input)
@@ -386,7 +376,15 @@ classdef (Abstract) LumericalDataset < matlab.mixin.Copyable
         end
 
         function validateFieldInStruct(struct_in, field_in, errmsg)
+            % Validate field exists in a struct
             if ~isfield(struct_in, field_in)
+                throwAsCaller(MException('', errmsg));
+            end
+        end
+
+        function validateNonEmptyNumericVector(input, errmsg)
+            % Validate input as non-empty vector (N-by-1 or 1-by-N)
+            if ~(isnumeric(input) && isvector(input) && ~isempty(input))
                 throwAsCaller(MException('', errmsg));
             end
         end
@@ -437,6 +435,212 @@ classdef (Abstract) LumericalDataset < matlab.mixin.Copyable
             % Returns true if a real-valued non-empty vector is strictly
             % monotonic (increasing or decreasing)
             tf =  all(diff(vec) > 0) || all(diff(vec) < 0);
+        end
+    end
+
+    methods (Static, Access = protected)
+        % Helper functions only shared with base class
+        function dataset_type = parseDatasetStructure(lum_dataset)
+            % Initially pase the dataset structure and determine dataset
+            % type (matrix or rectilinear)
+
+            % Input dataset has to be a struct scalar
+            LumericalDataset.validateStructScalar(lum_dataset, "Input dataset must be a struct scalar!");
+
+            % Check field: Lumerical_dataset
+            LumericalDataset.validateFieldInStruct(lum_dataset, 'Lumerical_dataset', "Input dataset does not have the field 'Lumerical_dataset'!");
+            LumericalDataset.validateStructScalar(lum_dataset.Lumerical_dataset, "Field 'Lumerical_dataset' is not a struct scalar!");
+            % Check 'attribute' field (check the contents later)
+            LumericalDataset.validateFieldInStruct(lum_dataset.Lumerical_dataset, 'attributes', "Field 'Lumerical_dataset' does not have the 'attributes' subfield! " + ...
+                "Maybe the dataset does not have any attribute. This type of dataset is not supported.");
+            % Check 'parameters' field (check the contents later)
+            LumericalDataset.validateFieldInStruct(lum_dataset.Lumerical_dataset, 'parameters', "Field 'Lumerical_dataset' does not have the 'parameters' subfield!")
+
+            % Determine dataset type (matrix or rectilinear) using
+            % 'geometry' field
+            if isfield(lum_dataset.Lumerical_dataset, 'geometry')
+                dataset_type = 'rectilinear';
+                if ~isequal(lum_dataset.Lumerical_dataset.geometry, "rectilinear")
+                    error("Wrong label in 'lum_dataset.geometry' for the rectilinear dataset!");
+                end
+            else
+                dataset_type = 'matrix';
+            end
+        end
+
+        function [xyz, lum_dataset] = parseXYZ(lum_dataset)
+            % Parse positional vectors (x,y,z) for a rectilinear dataset
+
+            xyz = struct;
+
+            % Check if x, y and z data exist in the dataset
+            LumericalDataset.validateFieldInStruct(lum_dataset, 'x', "No x data in the rectilinear dataset!");
+            LumericalDataset.validateFieldInStruct(lum_dataset, 'y', "No y data in the rectilinear dataset!");
+            LumericalDataset.validateFieldInStruct(lum_dataset, 'z', "No z data in the rectilinear dataset!");
+
+            % Load x,y,z to xyz and remove those field from the dataset
+            % Check x,y,z data.
+            for axis = 'xyz'
+                if ~isnumeric(lum_dataset.(axis)) || isempty(lum_dataset.(axis))
+                    error(axis + " data must be a numeric vector!");
+                end
+                if ~isvector(lum_dataset.(axis)) % 2+ dimensional matrix?
+                    warning("PositionalVector:DataIsMuldim", ...
+                        "Parameter " + axis + " is multi-dimensional! Stretched to one dimension!");
+                end
+                if any(imag(lum_dataset.(axis))) % has imaginary part?
+                    warning("PositionalVector:DataIsComplex", ...
+                        "Parameter " + axis + " is complex! Takes the real part and proceed.");
+                end
+            end
+            xyz.x = real(lum_dataset.x(:)); % (vectorize) convert to column vector
+            xyz.y = real(lum_dataset.y(:));
+            xyz.z = real(lum_dataset.z(:));
+            xyz.size = [length(xyz.x), length(xyz.y), length(xyz.z)];
+            % Remove x,y,z field from the dataset. This ensures that if other
+            % parameters have these names, an error will be issued when we try to
+            % look for them in the dataset
+            lum_dataset = rmfield(lum_dataset, 'x');
+            lum_dataset = rmfield(lum_dataset, 'y');
+            lum_dataset = rmfield(lum_dataset, 'z');
+        end
+
+        function [parameters_info, lum_dataset] = parseParameters(lum_dataset)
+            % Parse parameter field of the dataset
+
+            % Load all parameters names and organize them
+            parameters = lum_dataset.Lumerical_dataset.parameters;
+            if ~(iscell(parameters) && iscolumn(parameters))
+                error("Field 'Lumerical_dataset.parameters' should be a cell column vector!");
+            end
+            parameters_info = cell(length(parameters), 3);
+            for i = 1:length(parameters)
+                parameter = parameters{i};
+                % Check struct
+                if ~(isstruct(parameter) && isfield(parameter, 'variable') && isfield(parameter, 'name'))
+                    error("The interdependent parameter set " + i + " is not properly defined!");
+                end
+
+                % Initialize variables
+                parameter_names = strings(1, length(parameter));
+                parameter_values = cell(1, length(parameter));
+                parameter_length = nan(1, length(parameter));
+
+                % Retrieve the interdependent parameter set
+                for j = 1:length(parameter)
+                    LumericalDataset.validateTextScalar(parameter(j).variable, "The interdependent parameter set " + i + " names cannot be resolved!");
+                    interdep_parameter_name = parameter(j).variable;
+                    parameter_names(j) = interdep_parameter_name; % char array also works
+                    LumericalDataset.validateTextScalar(parameter(j).name, "The interdependent parameter set " + i + " names cannot be resolved!");
+                    if ~isvarname(interdep_parameter_name) % must be legal variable name
+                        error("The interdependent parameter set " + i + " names are not valid variable names!");
+                    end
+                    % Illegal characters in the names are converted to '_'
+                    if ~isequal(parameter(j).variable, parameter(j).name)
+                        warning("Parameter:NameHasIllegalCharacters", "Parameter name '" + parameter(j).name + ...
+                            "' contains illegal characters. Converted to '" + parameter(j).variable + "'.");
+                    end
+                    LumericalDataset.validateFieldInStruct(lum_dataset, interdep_parameter_name, ...
+                        "Parameter field '" + interdep_parameter_name + "' data not found!");
+                    value = lum_dataset.(interdep_parameter_name);
+                    % parameter will always be non-empty N-by-1 column vector. Check that.
+                    % In the check, can relax the condition to "non-empty vectors".
+                    LumericalDataset.validateNonEmptyNumericVector(value, ... %% instead check iscolumn?
+                        "Parameter field '" + interdep_parameter_name + "' data is not a numeric vector!");
+                    value = value(:); % convert to column vector, if applicable
+                    % Remove complex portion
+                    if any(imag(value)) % has imaginary part?
+                        warning("Parameter:DataIsComplex", "Parameter '" + interdep_parameter_name + ...
+                            "' data is complex! Takes the real part and proceed.");
+                        value = real(value);
+                    end
+                    if any(isnan(value)) || any(isinf(value)) % real part has NaN or Inf?
+                        warning("Parameter:DataHasInvalidElement", "Parameter '" + interdep_parameter_name + ...
+                            "' data contains invalid (NaN or Inf) elements! Something to keep in mind.");
+                    end
+                    % Remove this field from the dataset, prevent duplicate names
+                    lum_dataset = rmfield(lum_dataset, interdep_parameter_name);
+                    parameter_length(j) = length(value);
+                    parameter_values{j} = value; % each value could be different length
+                end
+                if ~isscalar(unique(parameter_length)) % lengths all the same?
+                    error("Interdependent parameters data do not have the same length!");
+                end
+                parameters_info{i, 1} = parameter_names;
+                parameters_info{i, 2} = cell2mat(parameter_values); % values same length, combine
+                parameters_info{i, 3} = parameter_length(1);
+            end
+        end
+
+        function [attributes_info, attributes_component, lum_dataset] = parseAttributes(lum_dataset, parameters_info, dataset_type, total_xyz_size)
+            % Parse attribute field of the dataset
+
+            % Load attribute names
+            attributes = lum_dataset.Lumerical_dataset.attributes;
+            if ~(isstruct(attributes) && isfield(attributes, 'variable') && isfield(attributes, 'name'))
+                error("The attributes are not properly defined!");
+            end
+
+            attributes_info = struct;
+            for i = 1:length(attributes)
+                attribute = attributes(i);
+                % Same here, illegal characters in the names are converted to '_'
+                % Check names are text and legal variable name
+                LumericalDataset.validateTextScalar(attribute.variable, "One or more attribute names cannot be resolved!");
+                LumericalDataset.validateTextScalar(attribute.name, "One or more attribute names cannot be resolved!");
+                if ~isvarname(attribute.variable)
+                    error("One or more attribute names are not valid variable names!");
+                end
+                if ~isequal(attribute.variable, attribute.name)
+                    warning("Attribute:NameHasIllegalCharacters", "Attribute name '" + attribute.name + ...
+                        "' contains illegal characters. Converted to '" + attribute.variable + "'.");
+                end
+                % Check attribute data exists
+                LumericalDataset.validateFieldInStruct(lum_dataset, attribute.variable, "Attribute field '" + attribute.variable + "' data not found!");
+                attribute_value = lum_dataset.(attribute.variable);
+                % Remove attribute value to prevent duplicate attribute name
+                lum_dataset = rmfield(lum_dataset, attribute.variable);
+                % Verify attribute value non-empty numeric
+                if ~isnumeric(attribute_value) || isempty(attribute_value)
+                    error("Attribute field '" + attribute.variable + "' data must be numeric!");
+                end
+                % Give warning if attribute data contains NaN or Inf
+                if any(isnan(attribute_value), 'all') || any(isinf(attribute_value), 'all')
+                    warning("Attribute:DataHasInvalidElement", "Attribute field '" + attribute.variable + ...
+                        "' data contains invalid (NaN or Inf) elements! Something to keep in mind.");
+                end
+                % Check first dimension: should equal to multiplied x,y,z lengths
+                if isequal(dataset_type, 'rectilinear')
+                    if size(attribute_value, 1) ~= total_xyz_size
+                        error("Unexpected size for attribute field '" + attribute.variable + "' data at 1st dimension!");
+                    end
+                else % should assume dataset_type == 'matrix'
+                    if size(attribute_value, 1) ~= 1
+                        error("Unexpected size for attribute field '" + attribute.variable + "' data at 1st dimension!");
+                    end
+                end
+                % Check second dimension: scalar or vector
+                if size(attribute_value, 2) == 1
+                    attributes_component.(attribute.variable) = NaN;
+                elseif size(attribute_value, 2) == 3
+                    attributes_component.(attribute.variable) = 0; % default-magnitude
+                else
+                    error("Unexpected size for attribute field '" + attribute.variable + "' data at 2nd dimension!");
+                end
+                % Check remaining dimensions, should agree with each parameter length
+                for k = 1:size(parameters_info, 3)
+                    if size(attribute_value, k + 2) ~= parameters_info{k, 3}
+                        error("Unexpected size for attribute field '" + attribute.variable + "' data at dimension " + (k+2) + " !");
+                    end
+                end
+                % If ndims-2 < number of parameters, that means there is no extra
+                % dimension(s) in the attribute data
+                if ndims(attribute_value) > size(parameters_info, 1) + 2
+                    error("Too many dimensions for attribute field '" + attribute.variable + "' data!");
+                end
+
+                attributes_info.(attribute.variable) = attribute_value;
+            end
         end
     end
 end
