@@ -15,6 +15,18 @@ function [parameters_info, attributes_info, attributes_component, xyz] = loadLum
 % An empty matrix dataset is not accepted.
 % A dataset without any attribute is not accepted.
 
+dataset_type = parseDatasetStructure(lum_dataset);
+if dataset_type == "rectilinear"
+    [xyz, lum_dataset] = parseXYZ(lum_dataset);
+else
+    xyz = struct;
+end
+[parameters_info, lum_dataset] = parseParameters(lum_dataset);
+[attributes_info, attributes_component] = parseAttributes(lum_dataset, parameters_info, dataset_type, xyz);
+end
+
+%% Actual functions
+function dataset_type = parseDatasetStructure(lum_dataset)
 % Input dataset has to be a struct scalar
 validateStructScalar(lum_dataset, "Input dataset must be a struct scalar!");
 
@@ -38,42 +50,45 @@ if isfield(lum_dataset.Lumerical_dataset, 'geometry')
 else
     dataset_type = 'matrix';
 end
-
-% If it is rectilinear, load x,y,z and organize them
-xyz = struct;
-if isequal(dataset_type, 'rectilinear')
-    % Check if x, y and z data exist in the dataset
-    validateFieldInStruct(lum_dataset, 'x', "No x data in the rectilinear dataset!");
-    validateFieldInStruct(lum_dataset, 'y', "No y data in the rectilinear dataset!");
-    validateFieldInStruct(lum_dataset, 'z', "No z data in the rectilinear dataset!");
-
-    % Load x,y,z to xyz and remove those field from the dataset
-    % Check x,y,z data.
-    for axis = 'xyz'
-        if ~isnumeric(lum_dataset.(axis)) || isempty(lum_dataset.(axis))
-            error(axis + " data must be a numeric vector!");
-        end
-        if ~isvector(lum_dataset.(axis)) % 2+ dimensional matrix?
-            warning("PositionalVector:DataIsMuldim", ...
-                "Parameter " + axis + " is multi-dimensional! Stretched to one dimension!");
-        end
-        if any(imag(lum_dataset.(axis))) % has imaginary part?
-            warning("PositionalVector:DataIsComplex", ...
-                "Parameter " + axis + " is complex! Takes the real part and proceed.");
-        end
-    end
-    xyz.x = real(lum_dataset.x(:)); % (vectorize) convert to column vector
-    xyz.y = real(lum_dataset.y(:));
-    xyz.z = real(lum_dataset.z(:));
-    xyz.size = [length(xyz.x), length(xyz.y), length(xyz.z)];
-    % Remove x,y,z field from the dataset. This ensures that if other
-    % parameters have these names, an error will be issued when we try to
-    % look for them in the dataset
-    lum_dataset = rmfield(lum_dataset, 'x');
-    lum_dataset = rmfield(lum_dataset, 'y');
-    lum_dataset = rmfield(lum_dataset, 'z');
 end
 
+function [xyz, lum_dataset] = parseXYZ(lum_dataset)
+% If it is rectilinear, load x,y,z and organize them
+xyz = struct;
+
+% Check if x, y and z data exist in the dataset
+validateFieldInStruct(lum_dataset, 'x', "No x data in the rectilinear dataset!");
+validateFieldInStruct(lum_dataset, 'y', "No y data in the rectilinear dataset!");
+validateFieldInStruct(lum_dataset, 'z', "No z data in the rectilinear dataset!");
+
+% Load x,y,z to xyz and remove those field from the dataset
+% Check x,y,z data.
+for axis = 'xyz'
+    if ~isnumeric(lum_dataset.(axis)) || isempty(lum_dataset.(axis))
+        error(axis + " data must be a numeric vector!");
+    end
+    if ~isvector(lum_dataset.(axis)) % 2+ dimensional matrix?
+        warning("PositionalVector:DataIsMuldim", ...
+            "Parameter " + axis + " is multi-dimensional! Stretched to one dimension!");
+    end
+    if any(imag(lum_dataset.(axis))) % has imaginary part?
+        warning("PositionalVector:DataIsComplex", ...
+            "Parameter " + axis + " is complex! Takes the real part and proceed.");
+    end
+end
+xyz.x = real(lum_dataset.x(:)); % (vectorize) convert to column vector
+xyz.y = real(lum_dataset.y(:));
+xyz.z = real(lum_dataset.z(:));
+xyz.size = [length(xyz.x), length(xyz.y), length(xyz.z)];
+% Remove x,y,z field from the dataset. This ensures that if other
+% parameters have these names, an error will be issued when we try to
+% look for them in the dataset
+lum_dataset = rmfield(lum_dataset, 'x');
+lum_dataset = rmfield(lum_dataset, 'y');
+lum_dataset = rmfield(lum_dataset, 'z');
+end
+
+function [parameters_info, lum_dataset] = parseParameters(lum_dataset)
 % Read parameters from the dataset
 % Load all parameters names and organize them
 parameters = lum_dataset.Lumerical_dataset.parameters;
@@ -138,7 +153,9 @@ for i = 1:length(parameters)
     parameters_info{i, 2} = cell2mat(parameter_values); % values same length, combine
     parameters_info{i, 3} = parameter_length(1);
 end
+end
 
+function [attributes_info, attributes_component, lum_dataset] = parseAttributes(lum_dataset, parameters_info, dataset_type, xyz)
 % Read attributes
 % Attributes could be scalar attribute, or vector(x, y, z) attributes,
 % depending on the type of the dataset
@@ -164,6 +181,8 @@ for i = 1:length(attributes)
     % Check attribute data exists
     validateFieldInStruct(lum_dataset, attribute.variable, "Attribute field '" + attribute.variable + "' data not found!");
     attribute_value = lum_dataset.(attribute.variable);
+    % Remove attribute value to prevent duplicate attribute name
+    lum_dataset = rmfield(lum_dataset, attribute.variable);
     % Verify attribute value non-empty numeric
     if ~isnumeric(attribute_value) || isempty(attribute_value)
         error("Attribute field '" + attribute.variable + "' data must be numeric!");

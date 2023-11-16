@@ -380,6 +380,32 @@ classdef TestLoadDataset < matlab.unittest.TestCase
                 'One or more attribute names are not valid variable names!');
         end
 
+        function testDuplicateAttributeName(testCase)
+            % Test duplicate attribute name, should give attribute data not
+            % found error
+            ds_matrix_ = testCase.ds_matrix;
+            % Test dataset should have at least 2 attributes
+            if length(ds_matrix_.Lumerical_dataset.attributes) < 2
+                error("Not enough number of attributes for testing!");
+            end
+            attribute_name = ds_matrix_.Lumerical_dataset.attributes(1).variable;
+            ds_matrix_.Lumerical_dataset.attributes(2).variable = attribute_name;
+            ds_matrix_.Lumerical_dataset.attributes(2).name = attribute_name;
+            testCase.verifyErrorMessage(@() loadLumDataset(ds_matrix_), ...
+                ['Attribute field ''', attribute_name, ''' data not found!']);
+        end
+
+        function testAttributeNameClashWithParameter(testCase)
+            % Test attribute with same name as a parameter, should give
+            % attribute data not found error
+            ds_matrix_ = testCase.ds_matrix;
+            attribute_name = ds_matrix_.Lumerical_dataset.parameters{1}(1).variable;
+            ds_matrix_.Lumerical_dataset.attributes(1).variable = attribute_name;
+            ds_matrix_.Lumerical_dataset.attributes(1).name = attribute_name;
+            testCase.verifyErrorMessage(@() loadLumDataset(ds_matrix_), ...
+                ['Attribute field ''', attribute_name, ''' data not found!']);
+        end
+
         function testAttributesIllegalCharacters(testCase)
             ds_matrix_ = testCase.ds_matrix;
             attribute_name = ds_matrix_.Lumerical_dataset.attributes(1).variable;
