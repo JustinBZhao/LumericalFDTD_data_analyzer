@@ -10,23 +10,33 @@ classdef RectilinearDataset < LumericalDataset
 
     methods
         function obj = RectilinearDataset(lum_dataset)
-            % Call superclass constructor
-            obj = obj@LumericalDataset(lum_dataset);
-
-            [~, lum_dataset] = LumericalDataset.parseParameters(lum_dataset);
-            % First load parameters
+            % Parse dataset structure, determine dataset type
             dataset_type = LumericalDataset.parseDatasetStructure(lum_dataset);
-            if dataset_type == "rectilinear"
-                [xyz, lum_dataset] = LumericalDataset.parseXYZ(lum_dataset);
-            else
-                xyz = struct;
+            if dataset_type ~= "rectilinear"
+                error("This is not a rectilinear dataset!");
             end
-            [obj.attributes, obj.attributes_component] = LumericalDataset.parseAttributes(lum_dataset, obj.parameters, dataset_type, prod(xyz.size));
-            obj.num_attributes = length(fieldnames(obj.attributes));
-            obj.x = xyz.x;
-            obj.y = xyz.y;
-            obj.z = xyz.z;
+
+            % Parse parameter and attribute names
+            parameters_info = LumericalDataset.parseParametersName(lum_dataset);
+            attributes_names = LumericalDataset.parseAttributesName(lum_dataset);
+            % No duplicate names allowed
+            allnames = [parameters_info{:, 1}, string(attributes_names).', "x", "y", "z"];
+            if length(unique(allnames)) ~= length(allnames)
+                error("Parameters, positional vectors (x,y,z) and attributes have duplicate names! Rejected!");
+            end
+
+            % Parse parameter data
+            obj.parameters = LumericalDataset.parseParametersData(lum_dataset, parameters_info);
+            obj.num_parameters = size(obj.parameters, 1);
+            obj.parameters_indexes = ones(obj.num_parameters, 1); % initialize to all 1
+
+            % Parse positional vectors
+            [obj.x, obj.y, obj.z, xyz_prod_size] = LumericalDataset.parseXYZ(lum_dataset);
             obj.axes_indexes = ones(3, 1);
+
+            % Parse attribute data
+            [obj.attributes, obj.attributes_component] = LumericalDataset.parseAttributesData(lum_dataset, attributes_names, obj.parameters, dataset_type, xyz_prod_size);
+            obj.num_attributes = length(fieldnames(obj.attributes));
         end
 
         function showInformation(obj)
@@ -190,7 +200,7 @@ classdef RectilinearDataset < LumericalDataset
 
             %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
             % Stupid implementation
-            
+
             % Remove x,y or z
             for i = 1:length(axes_idx)
                 switch axes_idx(i)

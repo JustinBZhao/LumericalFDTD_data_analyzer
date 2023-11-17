@@ -6,18 +6,28 @@ classdef MatrixDataset < LumericalDataset
 
     methods
         function obj = MatrixDataset(lum_dataset)
-            % Call superclass constructor
-            obj = obj@LumericalDataset(lum_dataset);
-
-            [~, lum_dataset] = LumericalDataset.parseParameters(lum_dataset);
-            % First load parameters
+            % Parse dataset structure, determine dataset type
             dataset_type = LumericalDataset.parseDatasetStructure(lum_dataset);
-            if dataset_type == "rectilinear"
-                [xyz, lum_dataset] = LumericalDataset.parseXYZ(lum_dataset);
-            else
-                xyz = struct;
+            if dataset_type ~= "matrix"
+                error("This is not a matrix dataset!");
             end
-            [obj.attributes, obj.attributes_component] = LumericalDataset.parseAttributes(lum_dataset, obj.parameters, dataset_type, 1);
+
+            % Parse parameter and attribute names
+            parameters_info = LumericalDataset.parseParametersName(lum_dataset);
+            attributes_names = LumericalDataset.parseAttributesName(lum_dataset);
+            % No duplicate names allowed
+            allnames = [parameters_info{:, 1}, string(attributes_names).'];
+            if length(unique(allnames)) ~= length(allnames)
+                error("Parameters and attributes have duplicate names! Rejected!");
+            end
+
+            % Parse parameter data
+            obj.parameters = LumericalDataset.parseParametersData(lum_dataset, parameters_info);
+            obj.num_parameters = size(obj.parameters, 1);
+            obj.parameters_indexes = ones(obj.num_parameters, 1); % initialize to all 1
+
+            % Parse attribute data
+            [obj.attributes, obj.attributes_component] = LumericalDataset.parseAttributesData(lum_dataset, attributes_names, obj.parameters, dataset_type);
             obj.num_attributes = length(fieldnames(obj.attributes));
         end
 

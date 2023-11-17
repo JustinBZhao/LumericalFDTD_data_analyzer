@@ -114,7 +114,7 @@ classdef TestLoadDataset < matlab.unittest.TestCase
         end
     end
 
-    methods (Test, TestTags = {'1'})
+    methods (Test, TestTags = {'dataset'})
         function testDatasetType(testCase, non_struct_scalar)
             % Test that non-struct-scalar dataset type throws an error.
             testCase.verifyErrorMessage(@() LumericalDataset.createObject(non_struct_scalar), ...
@@ -151,6 +151,17 @@ classdef TestLoadDataset < matlab.unittest.TestCase
             ds_parameters_rm.Lumerical_dataset = rmfield(ds_parameters_rm.Lumerical_dataset, "parameters");
             testCase.verifyErrorMessage(@() LumericalDataset.createObject(ds_parameters_rm), ...
                 'Field ''Lumerical_dataset'' does not have the ''parameters'' subfield!');
+        end
+
+        function testWrongDatasetType1(testCase)
+            % Test directly constructing wrong dataset type gives an error
+            testCase.verifyErrorMessage(@() MatrixDataset(testCase.ds_recti), ...
+                'This is not a matrix dataset!');
+        end
+
+        function testWrongDatasetType2(testCase)
+            testCase.verifyErrorMessage(@() RectilinearDataset(testCase.ds_matrix), ...
+                'This is not a rectilinear dataset!');
         end
     end
 
@@ -218,7 +229,7 @@ classdef TestLoadDataset < matlab.unittest.TestCase
             ds_recti_.Lumerical_dataset.attributes(1).variable = 'x';
             ds_recti_.Lumerical_dataset.attributes(1).name = 'x';
             testCase.verifyErrorMessage(@() LumericalDataset.createObject(ds_recti_), ...
-                'Attribute field ''x'' data not found!');
+                'Parameters, positional vectors (x,y,z) and attributes have duplicate names! Rejected!');
         end
     end
 
@@ -281,7 +292,7 @@ classdef TestLoadDataset < matlab.unittest.TestCase
             ds_matrix_.Lumerical_dataset.parameters{2}(1).variable = parameter_name;
             ds_matrix_.Lumerical_dataset.parameters{2}(1).name = parameter_name;
             testCase.verifyErrorMessage(@() LumericalDataset.createObject(ds_matrix_), ...
-                ['Parameter field ''', parameter_name, ''' data not found!']);
+                'Parameters and attributes have duplicate names! Rejected!');
         end
 
         function testParameterNameIllegalCharacters(testCase)
@@ -391,7 +402,7 @@ classdef TestLoadDataset < matlab.unittest.TestCase
             ds_matrix_.Lumerical_dataset.attributes(2).variable = attribute_name;
             ds_matrix_.Lumerical_dataset.attributes(2).name = attribute_name;
             testCase.verifyErrorMessage(@() LumericalDataset.createObject(ds_matrix_), ...
-                ['Attribute field ''', attribute_name, ''' data not found!']);
+                'Parameters and attributes have duplicate names! Rejected!');
         end
 
         function testAttributeNameClashWithParameter(testCase)
@@ -402,7 +413,7 @@ classdef TestLoadDataset < matlab.unittest.TestCase
             ds_matrix_.Lumerical_dataset.attributes(1).variable = attribute_name;
             ds_matrix_.Lumerical_dataset.attributes(1).name = attribute_name;
             testCase.verifyErrorMessage(@() LumericalDataset.createObject(ds_matrix_), ...
-                ['Attribute field ''', attribute_name, ''' data not found!']);
+                'Parameters and attributes have duplicate names! Rejected!');
         end
 
         function testAttributesIllegalCharacters(testCase)

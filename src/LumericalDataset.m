@@ -1,6 +1,27 @@
 classdef (Abstract) LumericalDataset < matlab.mixin.Copyable
     % Lumerical dataset base class
 
+    % Parameter and attribute data array cannot be empty.
+    %
+    % Missing required data will result in an error. However, more
+    % (unnecessary) data will not trigger any error, and will simply be
+    % ignored.
+    %
+    % No two names in parameters, attributes and positional vectors (x,y,z)
+    % can be the same.
+    %
+    % If a parameter or positional vector (x,y,z) data contains duplicate
+    % elements or is not strictly monotonic, no error/warning will be
+    % generated. However, 2D plot cannot be made. If it contains invalid
+    % element (NaN or Inf), a warning will be issued, and no plot can be
+    % made.
+    %
+    % If a parameter or positional vector (x,y,z) has complex data, the
+    % real part will be taken during conversion.
+    %
+    % A dataset without any parameter is not accepted. A dataset without
+    % any attribute is not accepted.
+
     properties (SetAccess = protected)
         parameters
         num_parameters
@@ -10,8 +31,6 @@ classdef (Abstract) LumericalDataset < matlab.mixin.Copyable
         attributes_component % select the current attribute component (x, y, z)
         % NaN-scalar 0-magnitude 1-x 2-y 3-z
         num_attributes
-        
-        
     end
 
     methods (Static)
@@ -36,17 +55,9 @@ classdef (Abstract) LumericalDataset < matlab.mixin.Copyable
     end
 
     methods
-        function obj = LumericalDataset(lum_dataset)
-            % Constructor
-            % Create a MATLAB data structure of a matrix dataset from the
-            %   Lumerical exported MATLAB data
-
-            % First load parameters
-            [parameters_info, lum_dataset] = LumericalDataset.parseParameters(lum_dataset);
-            obj.parameters = parameters_info;
-            obj.num_parameters = size(obj.parameters, 1);           
-            % Initialize to all 1 (first value for each parameter)
-            obj.parameters_indexes = ones(obj.num_parameters, 1);
+        function obj = LumericalDataset()
+            % Load Lumerical exported MATLAB dataset into custom class object
+            % Empty. Definitions in derived classes.
         end
 
         function showInformation(obj)
@@ -468,10 +479,8 @@ classdef (Abstract) LumericalDataset < matlab.mixin.Copyable
             end
         end
 
-        function [xyz, lum_dataset] = parseXYZ(lum_dataset)
+        function [x, y, z, xyz_prod_size] = parseXYZ(lum_dataset)
             % Parse positional vectors (x,y,z) for a rectilinear dataset
-
-            xyz = struct;
 
             % Check if x, y and z data exist in the dataset
             LumericalDataset.validateFieldInStruct(lum_dataset, 'x', "No x data in the rectilinear dataset!");
@@ -480,7 +489,7 @@ classdef (Abstract) LumericalDataset < matlab.mixin.Copyable
 
             % Load x,y,z to xyz and remove those field from the dataset
             % Check x,y,z data.
-            for axis = 'xyz'
+            for axis = ['x', 'y', 'z']
                 if ~isnumeric(lum_dataset.(axis)) || isempty(lum_dataset.(axis))
                     error(axis + " data must be a numeric vector!");
                 end
@@ -493,20 +502,14 @@ classdef (Abstract) LumericalDataset < matlab.mixin.Copyable
                         "Parameter " + axis + " is complex! Takes the real part and proceed.");
                 end
             end
-            xyz.x = real(lum_dataset.x(:)); % (vectorize) convert to column vector
-            xyz.y = real(lum_dataset.y(:));
-            xyz.z = real(lum_dataset.z(:));
-            xyz.size = [length(xyz.x), length(xyz.y), length(xyz.z)];
-            % Remove x,y,z field from the dataset. This ensures that if other
-            % parameters have these names, an error will be issued when we try to
-            % look for them in the dataset
-            lum_dataset = rmfield(lum_dataset, 'x');
-            lum_dataset = rmfield(lum_dataset, 'y');
-            lum_dataset = rmfield(lum_dataset, 'z');
+            x = real(lum_dataset.x(:)); % (vectorize) convert to column vector
+            y = real(lum_dataset.y(:));
+            z = real(lum_dataset.z(:));
+            xyz_prod_size = length(x) * length(y) * length(z);
         end
 
-        function [parameters_info, lum_dataset] = parseParameters(lum_dataset)
-            % Parse parameter field of the dataset
+        function parameters_info = parseParametersName(lum_dataset)
+            % Parse parameter field names of the dataset
 
             % Load all parameters names and organize them
             parameters = lum_dataset.Lumerical_dataset.parameters;
@@ -523,8 +526,6 @@ classdef (Abstract) LumericalDataset < matlab.mixin.Copyable
 
                 % Initialize variables
                 parameter_names = strings(1, length(parameter));
-                parameter_values = cell(1, length(parameter));
-                parameter_length = nan(1, length(parameter));
 
                 % Retrieve the interdependent parameter set
                 for j = 1:length(parameter)
@@ -542,6 +543,19 @@ classdef (Abstract) LumericalDataset < matlab.mixin.Copyable
                     end
                     LumericalDataset.validateFieldInStruct(lum_dataset, interdep_parameter_name, ...
                         "Parameter field '" + interdep_parameter_name + "' data not found!");
+                end
+                parameters_info{i, 1} = parameter_names;
+            end
+        end
+
+        function parameters_info = parseParametersData(lum_dataset, parameters_info)
+            % Parse parameter field data of the dataset
+
+            for i = 1:size(parameters_info, 1)
+                parameter_values = cell(1, length(parameters_info{i, 1}));
+                parameter_length = nan(1, length(parameters_info{i, 1}));
+                for j = 1:length(parameters_info{i, 1})
+                    interdep_parameter_name = parameters_info{i, 1}(j);
                     value = lum_dataset.(interdep_parameter_name);
                     % parameter will always be non-empty N-by-1 column vector. Check that.
                     % In the check, can relax the condition to "non-empty vectors".
@@ -558,22 +572,20 @@ classdef (Abstract) LumericalDataset < matlab.mixin.Copyable
                         warning("Parameter:DataHasInvalidElement", "Parameter '" + interdep_parameter_name + ...
                             "' data contains invalid (NaN or Inf) elements! Something to keep in mind.");
                     end
-                    % Remove this field from the dataset, prevent duplicate names
-                    lum_dataset = rmfield(lum_dataset, interdep_parameter_name);
                     parameter_length(j) = length(value);
                     parameter_values{j} = value; % each value could be different length
                 end
                 if ~isscalar(unique(parameter_length)) % lengths all the same?
                     error("Interdependent parameters data do not have the same length!");
                 end
-                parameters_info{i, 1} = parameter_names;
+
                 parameters_info{i, 2} = cell2mat(parameter_values); % values same length, combine
                 parameters_info{i, 3} = parameter_length(1);
             end
         end
 
-        function [attributes_info, attributes_component, lum_dataset] = parseAttributes(lum_dataset, parameters_info, dataset_type, total_xyz_size)
-            % Parse attribute field of the dataset
+        function attributes_names = parseAttributesName(lum_dataset)
+            % Parse attribute field names of the dataset
 
             % Load attribute names
             attributes = lum_dataset.Lumerical_dataset.attributes;
@@ -581,7 +593,7 @@ classdef (Abstract) LumericalDataset < matlab.mixin.Copyable
                 error("The attributes are not properly defined!");
             end
 
-            attributes_info = struct;
+            attributes_names = cell(length(attributes), 1);
             for i = 1:length(attributes)
                 attribute = attributes(i);
                 % Same here, illegal characters in the names are converted to '_'
@@ -597,49 +609,57 @@ classdef (Abstract) LumericalDataset < matlab.mixin.Copyable
                 end
                 % Check attribute data exists
                 LumericalDataset.validateFieldInStruct(lum_dataset, attribute.variable, "Attribute field '" + attribute.variable + "' data not found!");
-                attribute_value = lum_dataset.(attribute.variable);
-                % Remove attribute value to prevent duplicate attribute name
-                lum_dataset = rmfield(lum_dataset, attribute.variable);
+                attributes_names{i} = attribute.variable;
+            end
+        end
+
+
+        function [attributes_info, attributes_component] = parseAttributesData(lum_dataset, attributes_names, parameters_info, dataset_type, total_xyz_size)
+            % Parse attribute field data of the dataset
+
+            for i = 1:length(attributes_names)
+                attribute_name = attributes_names{i};
+                attribute_value = lum_dataset.(attribute_name);
                 % Verify attribute value non-empty numeric
                 if ~isnumeric(attribute_value) || isempty(attribute_value)
-                    error("Attribute field '" + attribute.variable + "' data must be numeric!");
+                    error("Attribute field '" + attribute_name + "' data must be numeric!");
                 end
                 % Give warning if attribute data contains NaN or Inf
                 if any(isnan(attribute_value), 'all') || any(isinf(attribute_value), 'all')
-                    warning("Attribute:DataHasInvalidElement", "Attribute field '" + attribute.variable + ...
+                    warning("Attribute:DataHasInvalidElement", "Attribute field '" + attribute_name + ...
                         "' data contains invalid (NaN or Inf) elements! Something to keep in mind.");
                 end
                 % Check first dimension: should equal to multiplied x,y,z lengths
                 if isequal(dataset_type, 'rectilinear')
                     if size(attribute_value, 1) ~= total_xyz_size
-                        error("Unexpected size for attribute field '" + attribute.variable + "' data at 1st dimension!");
+                        error("Unexpected size for attribute field '" + attribute_name + "' data at 1st dimension!");
                     end
                 else % should assume dataset_type == 'matrix'
                     if size(attribute_value, 1) ~= 1
-                        error("Unexpected size for attribute field '" + attribute.variable + "' data at 1st dimension!");
+                        error("Unexpected size for attribute field '" + attribute_name + "' data at 1st dimension!");
                     end
                 end
                 % Check second dimension: scalar or vector
                 if size(attribute_value, 2) == 1
-                    attributes_component.(attribute.variable) = NaN;
+                    attributes_component.(attribute_name) = NaN;
                 elseif size(attribute_value, 2) == 3
-                    attributes_component.(attribute.variable) = 0; % default-magnitude
+                    attributes_component.(attribute_name) = 0; % default-magnitude
                 else
-                    error("Unexpected size for attribute field '" + attribute.variable + "' data at 2nd dimension!");
+                    error("Unexpected size for attribute field '" + attribute_name + "' data at 2nd dimension!");
                 end
                 % Check remaining dimensions, should agree with each parameter length
                 for k = 1:size(parameters_info, 3)
                     if size(attribute_value, k + 2) ~= parameters_info{k, 3}
-                        error("Unexpected size for attribute field '" + attribute.variable + "' data at dimension " + (k+2) + " !");
+                        error("Unexpected size for attribute field '" + attribute_name + "' data at dimension " + (k+2) + " !");
                     end
                 end
                 % If ndims-2 < number of parameters, that means there is no extra
                 % dimension(s) in the attribute data
                 if ndims(attribute_value) > size(parameters_info, 1) + 2
-                    error("Too many dimensions for attribute field '" + attribute.variable + "' data!");
+                    error("Too many dimensions for attribute field '" + attribute_name + "' data!");
                 end
 
-                attributes_info.(attribute.variable) = attribute_value;
+                attributes_info.(attribute_name) = attribute_value;
             end
         end
     end
