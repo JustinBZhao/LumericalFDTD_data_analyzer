@@ -222,6 +222,18 @@ classdef TestLoadDataset < matlab.unittest.TestCase
                 "PositionalVector:DataIsComplex");
         end
 
+        function testXYZDataNaNInf(testCase)
+            % Test parameter data with NaN or Inf
+            ds_recti_ = testCase.ds_recti;
+            ds_recti_.y(1) = NaN;
+            testCase.verifyWarning(@() LumericalDataset.createObject(ds_recti_), ...
+                "PositionalVector:DataHasInvalidElement");
+            ds_recti_ = testCase.ds_recti;
+            ds_recti_.y(1) = -Inf;
+            testCase.verifyWarning(@() LumericalDataset.createObject(ds_recti_), ...
+                "PositionalVector:DataHasInvalidElement");
+        end
+
         function testRectiParameterNameClash(testCase)
             % Test rectilinear dataset parameter name (x,y,z) will throw an
             % error

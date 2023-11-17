@@ -490,21 +490,27 @@ classdef (Abstract) LumericalDataset < matlab.mixin.Copyable
             % Load x,y,z to xyz and remove those field from the dataset
             % Check x,y,z data.
             for axis = ['x', 'y', 'z']
-                if ~isnumeric(lum_dataset.(axis)) || isempty(lum_dataset.(axis))
+                data.(axis) = lum_dataset.(axis);
+                if ~isnumeric(data.(axis)) || isempty(data.(axis))
                     error(axis + " data must be a numeric vector!");
                 end
-                if ~isvector(lum_dataset.(axis)) % 2+ dimensional matrix?
+                if ~isvector(data.(axis)) % 2+ dimensional matrix?
                     warning("PositionalVector:DataIsMuldim", ...
                         "Parameter " + axis + " is multi-dimensional! Stretched to one dimension!");
                 end
-                if any(imag(lum_dataset.(axis))) % has imaginary part?
+                if any(imag(data.(axis))) % has imaginary part?
                     warning("PositionalVector:DataIsComplex", ...
                         "Parameter " + axis + " is complex! Takes the real part and proceed.");
+                    data.(axis) = real(data.(axis));
+                end
+                if any(isnan(data.(axis)), 'all') || any(isinf(data.(axis)), 'all') % real part has NaN or Inf?
+                    warning("PositionalVector:DataHasInvalidElement", "Parameter '" + axis + ...
+                        "' data contains invalid (NaN or Inf) elements! Something to keep in mind.");
                 end
             end
-            x = real(lum_dataset.x(:)); % (vectorize) convert to column vector
-            y = real(lum_dataset.y(:));
-            z = real(lum_dataset.z(:));
+            x = data.x(:); % (vectorize) convert to column vector
+            y = data.y(:);
+            z = data.z(:);
             xyz_prod_size = length(x) * length(y) * length(z);
         end
 
