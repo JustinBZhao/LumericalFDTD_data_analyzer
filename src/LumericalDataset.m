@@ -52,6 +52,39 @@ classdef (Abstract) LumericalDataset < matlab.mixin.Copyable
                 obj = MatrixDataset(lum_dataset);
             end
         end
+
+        function converted_obj = createObjectFromMat(mat_name, varargin)
+            % Create dataset from the .mat file
+            % By default, attempt to convert all structs
+            % Can specify specific files to convert
+
+            % Check name of mat_file, check varargin
+            try
+                info = whos(matfile(mat_name));
+            catch ME
+                error("File name is invalid!");
+            end
+            % Can only have one dataset in one file
+            if isempty(info)
+                error("File is not found is empty!");
+            end
+            % Need to find how many structs are in there
+            for i = 1:numel(info)
+                variable_name = info(i).name;
+                if isempty(varargin)
+                    data = load(mat_name, variable_name);
+                    converted_obj.(variable_name) = ...
+                        LumericalDataset.createObject(data.(variable_name));
+                end
+                % varargin should be a cell array of char vector
+                if strcmp(variable_name, varargin)
+                    data = load(mat_name, variable_name);
+                    converted_obj.(variable_name) = ...
+                        LumericalDataset.createObject(data.(variable_name));
+                end
+            end
+        end
+        % Get the dataset in the current file
     end
 
     methods
