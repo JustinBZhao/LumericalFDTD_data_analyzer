@@ -145,9 +145,16 @@ classdef (Abstract) LumericalDataset < matlab.mixin.Copyable
             end
         end
 
-        function [hAx, hPlot] = plotData1D(obj, parameter_name, attribute_name)  % non-virtual
+        function hPlot = plotData1D(obj, parameter_name, attribute_name, ax)  % non-virtual
             % This function makes a 1D plot based on the parameter name and
             % the attribute name.
+
+            % If 'ax' is a valid axes handle, plot on that axes object
+            if nargin < 4
+                ax = gca(); % plot on current axis
+            elseif  ~(isscalar(ax) && isgraphics(ax, 'axes')) % valid axes handle
+                error("'ax' argument must be an valid axes handle!");
+            end
 
             % Calls the respective polymorphic function for each object
             [xdata, ydata] = obj.getPlot1DData(parameter_name, attribute_name);
@@ -156,17 +163,22 @@ classdef (Abstract) LumericalDataset < matlab.mixin.Copyable
             % Problem (also for 2D):
             % complex numbers? real?
             % Unit conversion and scaling?
-            figure;
-            hPlot = plot(xdata, real(ydata));
-            xlabel(parameter_name, 'Interpreter', 'none');
-            ylabel(attribute_name, 'Interpreter', 'none');
-            hAx = gca;
-            set(hAx, 'FontSize', 16);
+            hPlot = plot(ax, xdata, real(ydata));
+            xlabel(ax, parameter_name, 'Interpreter', 'none');
+            ylabel(ax, attribute_name, 'Interpreter', 'none');
+            set(ax, 'FontSize', 16);
         end
 
-        function [hAx, hSurf, hClbr] = plotData2D(obj, parameter1_name, parameter2_name, attribute_name)  % non-virtual
+        function [hSurf, hClb] = plotData2D(obj, parameter1_name, parameter2_name, attribute_name, ax)  % non-virtual
             % This function makes a 2D plot based on the parameter names
             % and the attribute name.
+
+            % If 'ax' is a valid axes handle, plot on that axes object
+            if nargin < 5
+                ax = gca(); % plot on current axis
+            elseif  ~(isscalar(ax) && isgraphics(ax, 'axes')) % valid axes handle
+                error("'ax' argument must be an valid axes handle!");
+            end
 
             % Calls the respective polymorphic function for each object
             [xdata, ydata, zdata] = obj.getPlot2DData(parameter1_name, parameter2_name, attribute_name);
@@ -188,19 +200,16 @@ classdef (Abstract) LumericalDataset < matlab.mixin.Copyable
             zdata_new(1:end-1, 1:end-1) = zdata;
             zdata = zdata_new;
 
-            figure;
-            hSurf = surface(xdata*1e9, ydata*1e9, real(zdata));
-            xlim([min(xdata*1e9), max(xdata*1e9)]);
-            ylim([min(ydata*1e9), max(ydata*1e9)]);
-            xlabel(parameter1_name + " (nm)", 'Interpreter', 'none');
-            ylabel(parameter2_name + " (nm)", 'Interpreter', 'none');
-            colormap jet;
-            hClbr = colorbar;
-            set(gca, 'FontSize', 16);
-            hSurf.EdgeColor = 'none';
-            hAx = gca;
-            set(hAx, 'Layer', 'top');
-            box on;
+            hSurf = surface(ax, xdata*1e9, ydata*1e9, real(zdata), 'EdgeColor', 'none');
+            xlim(ax, [min(xdata*1e9), max(xdata*1e9)]);
+            ylim(ax, [min(ydata*1e9), max(ydata*1e9)]);
+            xlabel(ax, parameter1_name + " (nm)", 'Interpreter', 'none');
+            ylabel(ax, parameter2_name + " (nm)", 'Interpreter', 'none');
+            colormap(ax, 'jet');
+            hClb = colorbar;
+            set(ax, 'FontSize', 16);
+            set(ax, 'Layer', 'top');
+            box(ax, 'on');
         end
     end
 
