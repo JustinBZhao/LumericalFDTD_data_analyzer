@@ -7,6 +7,7 @@ classdef TestLoadDataset < matlab.unittest.TestCase
     properties
         ds_matrix % normal matrix dataset
         ds_recti  % normal rectilinear dataset
+        ds_special % collection of special test datasets
     end
 
     properties (TestParameter)
@@ -82,21 +83,19 @@ classdef TestLoadDataset < matlab.unittest.TestCase
 
     methods (Test, TestTags = {'Special dataset'})
         function testEmptyDataset(testCase)
-            ds_test = load("special_test_dataset.mat", 'ds_matrix_empty');
-            testCase.verifyErrorMessage(@() LumericalDataset.createObject(ds_test.ds_matrix_empty), ...
+            testCase.verifyErrorMessage(@() LumericalDataset.createObject(testCase.ds_special.ds_matrix_empty), ...
                 'Empty dataset is not supported!');
         end
 
         function testDatasetNoAttribute(testCase)
             % Test dataset with no attribute triggers this error
-            ds_test = load("special_test_dataset.mat", 'ds_matrix_no_attribute', 'ds_recti_no_attribute', 'ds_recti_xyzonly');
-            testCase.verifyErrorMessage(@() LumericalDataset.createObject(ds_test.ds_matrix_no_attribute), ...
+            testCase.verifyErrorMessage(@() LumericalDataset.createObject(testCase.ds_special.ds_matrix_no_attribute), ...
                 ['Field ''Lumerical_dataset'' does not have the ''attributes'' subfield! ' ...
                 'Maybe the dataset does not have any attribute. This type of dataset is not supported.']);
-            testCase.verifyErrorMessage(@() LumericalDataset.createObject(ds_test.ds_recti_no_attribute), ...
+            testCase.verifyErrorMessage(@() LumericalDataset.createObject(testCase.ds_special.ds_recti_no_attribute), ...
                 ['Field ''Lumerical_dataset'' does not have the ''attributes'' subfield! ' ...
                 'Maybe the dataset does not have any attribute. This type of dataset is not supported.']);
-            testCase.verifyErrorMessage(@() LumericalDataset.createObject(ds_test.ds_recti_xyzonly), ...
+            testCase.verifyErrorMessage(@() LumericalDataset.createObject(testCase.ds_special.ds_recti_xyzonly), ...
                 ['Field ''Lumerical_dataset'' does not have the ''attributes'' subfield! ' ...
                 'Maybe the dataset does not have any attribute. This type of dataset is not supported.']);
         end
@@ -106,11 +105,23 @@ classdef TestLoadDataset < matlab.unittest.TestCase
             % matrix and rectilinear dataset. xyz not tested here. No way
             % to test multidimensional parameter data either, because it is
             % already converted during MATLAB export.
-            ds_test = load("special_test_dataset.mat");
-            testCase.verifyWarning(@() LumericalDataset.createObject(ds_test.ds_matrix_complex), ...
+            testCase.verifyWarning(@() LumericalDataset.createObject(testCase.ds_special.ds_matrix_complex), ...
                 "Parameter:DataIsComplex");
-            testCase.verifyWarning(@() LumericalDataset.createObject(ds_test.ds_recti_complex), ...
+            testCase.verifyWarning(@() LumericalDataset.createObject(testCase.ds_special.ds_recti_complex), ...
                 "Parameter:DataIsComplex");
+        end
+
+        function testDatasetCorrectComplexParameterConversion(testCase)
+            % Test dataset correctly converted complex valued x,y,z vectors
+            % and parameters
+            % This test will throw warnings for complex data, but it is not
+            % what we are testing for
+            dataset_matrix_complex = LumericalDataset.createObject(testCase.ds_special.ds_matrix_complex);
+            special_golden_master = load("golden_master_special_dataset.mat");
+            testCase.verifyEqual(dataset_matrix_complex, special_golden_master.dataset_matrix_complex);
+
+            dataset_recti_complexxyz = LumericalDataset.createObject(testCase.ds_special.ds_recti_complexxyz);
+            testCase.verifyEqual(dataset_recti_complexxyz, special_golden_master.dataset_recti_complexxyz);
         end
     end
 
@@ -210,15 +221,13 @@ classdef TestLoadDataset < matlab.unittest.TestCase
         function testXYZDataMuldim(testCase)
             % Test x,y,z values be multi-dimensional matrix: throw a
             % warning
-            ds_test = load("special_test_dataset.mat");
-            testCase.verifyWarning(@() LumericalDataset.createObject(ds_test.ds_recti_muldimxyz), ...
+            testCase.verifyWarning(@() LumericalDataset.createObject(testCase.ds_special.ds_recti_muldimxyz), ...
                 "PositionalVector:DataIsMuldim");
         end
 
         function testXYZDataImag(testCase)
             % Test x,y,z values be complex: throw a warning
-            ds_test = load("special_test_dataset.mat");
-            testCase.verifyWarning(@() LumericalDataset.createObject(ds_test.ds_recti_complexxyz), ...
+            testCase.verifyWarning(@() LumericalDataset.createObject(testCase.ds_special.ds_recti_complexxyz), ...
                 "PositionalVector:DataIsComplex");
         end
 
@@ -523,9 +532,11 @@ classdef TestLoadDataset < matlab.unittest.TestCase
 
     methods (TestClassSetup)
         function loadDatasetOnce(testCase)
+            % Load dataset into test class properties
             data = load("normal_test_dataset.mat");
             testCase.ds_matrix = data.ds_matrix;
             testCase.ds_recti = data.ds_recti;
+            testCase.ds_special = load("special_test_dataset.mat");
         end
     end
 
