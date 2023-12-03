@@ -58,33 +58,46 @@ classdef (Abstract) LumericalDataset < matlab.mixin.Copyable
             % By default, attempt to convert all structs
             % Can specify specific files to convert
 
-            % Check name of mat_file, check varargin
+            % Check varargin!!!!
+
+
+            % File name must be accepted into matfile function
             try
                 info = whos(matfile(mat_name));
             catch ME
                 error("File name is invalid!");
             end
-            % Can only have one dataset in one file
+            % Specified file must be non-empty
             if isempty(info)
-                error("File is not found is empty!");
+                error("File is not found or is empty!");
             end
+            % If specified variable names, find these variable names
             % Need to find how many structs are in there
-            for i = 1:numel(info)
-                variable_name = info(i).name;
-                if isempty(varargin)
+
+            % Should check if the specified variable is in the .mat file
+            if isempty(varargin)
+                for i = 1:numel(info)
+                    variable_name = info(i).name;
                     data = load(mat_name, variable_name);
                     converted_obj.(variable_name) = ...
                         LumericalDataset.createObject(data.(variable_name));
                 end
+            else
+                names = arrayfun(@(x) x.name, info, 'UniformOutput', false); % just to get all the names in 'info'
+                for j = 1:length(varargin) %%%%%%% Repeated names in varargin?
+                    if ~isvarname(varargin{j})
+                        error("Not valid variable name!");
+                    end
+                    if any(strcmp(varargin{j}, names))
+                        data = load(mat_name, varargin{j});
+                        converted_obj.(varargin{j}) = ...
+                            LumericalDataset.createObject(data.(varargin{j}));
+                    end
+                end
+
                 % varargin should be a cell array of char vector
-                if strcmp(variable_name, varargin)
-                    data = load(mat_name, variable_name);
-                    converted_obj.(variable_name) = ...
-                        LumericalDataset.createObject(data.(variable_name));
-                end
             end
         end
-        % Get the dataset in the current file
     end
 
     methods
