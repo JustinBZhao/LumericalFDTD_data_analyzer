@@ -58,9 +58,6 @@ classdef (Abstract) LumericalDataset < matlab.mixin.Copyable
             % By default, attempt to convert all structs
             % Can specify specific files to convert
 
-            % Check varargin!!!!
-
-
             % File name must be accepted into matfile function
             try
                 info = whos(matfile(mat_name));
@@ -71,31 +68,49 @@ classdef (Abstract) LumericalDataset < matlab.mixin.Copyable
             if isempty(info)
                 error("File is not found or is empty!");
             end
-            % If specified variable names, find these variable names
-            % Need to find how many structs are in there
 
-            % Should check if the specified variable is in the .mat file
+            data = load(mat_name);
+            % If variables not specified, load all the variables
             if isempty(varargin)
-                for i = 1:numel(info)
+                for i = 1:numel(info) % you can also directly search in 'data'
                     variable_name = info(i).name;
-                    data = load(mat_name, variable_name);
+                    try
+                        converted_obj.(variable_name) = ...
+                            LumericalDataset.createObject(data.(variable_name));
+                    catch ME
+                        new_ME = MException(ME.identifier, ['Variable ''', variable_name, ...
+                            ''' in the .mat file is not successfully converted! Reason: ', ME.message]);
+                        throw(new_ME);
+                    end
+                end
+                return;
+            end
+
+            % If variables specified, check they are valid and exist in the
+            % .mat file
+            variable_names = varargin;
+            for i = 1:length(variable_names)
+                if ~isvarname(variable_names{i})
+                    error("Specified variable name must be valid!");
+                end
+                variable_names{i} = char(variable_names{i}); % convert string to char
+            end
+            % Remove possible duplicates
+            variable_names = unique(variable_names);
+            % Load data
+            for i = 1:length(variable_names)
+                variable_name = variable_names{i};
+                if ~isfield(data, variable_name) % check variable exists
+                    error("Specified variable does not exist!");
+                end
+                try
                     converted_obj.(variable_name) = ...
                         LumericalDataset.createObject(data.(variable_name));
+                catch ME
+                    new_ME = MException(ME.identifier, ['Variable ''', variable_name, ...
+                        ''' in the .mat file is not successfully converted! Reason: ', ME.message]);
+                    throw(new_ME);
                 end
-            else
-                names = arrayfun(@(x) x.name, info, 'UniformOutput', false); % just to get all the names in 'info'
-                for j = 1:length(varargin) %%%%%%% Repeated names in varargin?
-                    if ~isvarname(varargin{j})
-                        error("Not valid variable name!");
-                    end
-                    if any(strcmp(varargin{j}, names))
-                        data = load(mat_name, varargin{j});
-                        converted_obj.(varargin{j}) = ...
-                            LumericalDataset.createObject(data.(varargin{j}));
-                    end
-                end
-
-                % varargin should be a cell array of char vector
             end
         end
     end
