@@ -52,6 +52,40 @@ classdef (Abstract) LumericalDataset < matlab.mixin.Copyable
                 obj = MatrixDataset(lum_dataset);
             end
         end
+
+        function converted_obj = createObjectFromMat(mat_name, varargin)
+            % Create dataset from the .mat file
+            %
+            % Input arguments are the same as 'load' function. First
+            % argument specifies the MAT file name, and the remaining
+            % arguments optionally specify the variables to load. If
+            % variables not specified, all variables are loaded.
+            %
+            % For variables that are not convertible to dataset objects,
+            % leave them as it is.
+
+            % Legal arguments supplied to load the MAT file (may throw
+            % exception from the 'load' function)
+            data = load(mat_name, "-mat", varargin{:});
+            % Specified file must be non-empty
+            if isempty(fieldnames(data))
+                error("Cannot process an empty MAT file!");
+            end
+            variable_names = fieldnames(data);
+            % Attempt to convert each variable
+            for i = 1:length(variable_names)
+                variable_name = variable_names{i};
+                try % if not convertable, leave it as it is and issue warning
+                    converted_obj.(variable_name) = ...
+                        LumericalDataset.createObject(data.(variable_name));
+                catch ME
+                    converted_obj.(variable_name) = data.(variable_name);
+                    warning_msg = ['Variable ''', variable_name, ...
+                        ''' in the .mat file was not a dataset and was left unconverted! Reason: ', ME.message];
+                    warning(warning_msg);
+                end
+            end
+        end
     end
 
     methods
