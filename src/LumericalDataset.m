@@ -505,10 +505,10 @@ classdef (Abstract) LumericalDataset < matlab.mixin.Copyable
             LumericalDataset.validateFieldInStruct(lum_dataset, 'Lumerical_dataset', "Input dataset does not have the field 'Lumerical_dataset'!");
             LumericalDataset.validateStructScalar(lum_dataset.Lumerical_dataset, "Field 'Lumerical_dataset' is not a struct scalar!");
             % Check 'attribute' field (check the contents later)
-            LumericalDataset.validateFieldInStruct(lum_dataset.Lumerical_dataset, 'attributes', "Field 'Lumerical_dataset' does not have the 'attributes' subfield! " + ...
-                "Maybe the dataset does not have any attribute. This type of dataset is not supported.");
+            LumericalDataset.validateFieldInStruct(lum_dataset.Lumerical_dataset, 'attributes', "Field 'Lumerical_dataset' is missing the 'attributes' subfield! " + ...
+                "Dataset without any attribute is not supported.");
             % Check 'parameters' field (check the contents later)
-            LumericalDataset.validateFieldInStruct(lum_dataset.Lumerical_dataset, 'parameters', "Field 'Lumerical_dataset' does not have the 'parameters' subfield!")
+            LumericalDataset.validateFieldInStruct(lum_dataset.Lumerical_dataset, 'parameters', "Field 'Lumerical_dataset' is missing the 'parameters' subfield!")
 
             % Determine dataset type (matrix or rectilinear) using
             % 'geometry' field
@@ -606,9 +606,12 @@ classdef (Abstract) LumericalDataset < matlab.mixin.Copyable
                 for j = 1:length(parameters_info{i, 1})
                     interdep_parameter_name = parameters_info{i, 1}(j);
                     value = lum_dataset.(interdep_parameter_name);
-                    % parameter will always be non-empty N-by-1 column vector. Check that.
-                    % In the check, can relax the condition to "non-empty vectors".
-                    LumericalDataset.validateNonEmptyNumericVector(value, ... %% instead check iscolumn?
+                    % Parameter data will never be multi-dimensional. Even
+                    % if it is originally, it will be converted to 1D
+                    % vector during MATLAB export.
+                    % Check data to be non-empty vector (should always be
+                    % column vector, actually)
+                    LumericalDataset.validateNonEmptyNumericVector(value, ...
                         "Parameter field '" + interdep_parameter_name + "' data is not a numeric vector!");
                     value = value(:); % convert to column vector, if applicable
                     % Remove complex portion
@@ -679,13 +682,15 @@ classdef (Abstract) LumericalDataset < matlab.mixin.Copyable
                         "' data contains invalid (NaN or Inf) elements! Something to keep in mind.");
                 end
                 % Check first dimension: should equal to multiplied x,y,z lengths
-                if isequal(dataset_type, 'rectilinear')
-                    if size(attribute_value, 1) ~= total_xyz_size
-                        error("Unexpected size for attribute field '" + attribute_name + "' data at 1st dimension!");
-                    end
-                else % should assume dataset_type == 'matrix'
+                if isequal(dataset_type, 'matrix')
                     if size(attribute_value, 1) ~= 1
-                        error("Unexpected size for attribute field '" + attribute_name + "' data at 1st dimension!");
+                        error("In matrix dataset, the size for attribute field '" ...
+                            + attribute_name + "' data at 1st dimension should be 1!");
+                    end
+                else % should assume dataset_type == 'rectilinear'
+                    if size(attribute_value, 1) ~= total_xyz_size
+                        error("In rectilinear dataset, the size for attribute field '" ...
+                            + attribute_name + "' data at 1st dimension should match the product of x, y and z dimensions!");
                     end
                 end
                 % Check second dimension: scalar or vector
@@ -696,18 +701,18 @@ classdef (Abstract) LumericalDataset < matlab.mixin.Copyable
                 else
                     error("Unexpected size for attribute field '" + attribute_name + "' data at 2nd dimension!");
                 end
-                % Check remaining dimensions, should agree with each parameter length
+                % Check remaining dimensions, should agree with each parameter data length
                 for k = 1:size(parameters_info, 3)
                     if size(attribute_value, k + 2) ~= parameters_info{k, 3}
                         error("Unexpected size for attribute field '" + attribute_name + "' data at dimension " + (k+2) + " !");
                     end
                 end
-                % If ndims-2 < number of parameters, that means there is no extra
-                % dimension(s) in the attribute data
+                % If ndims-2 <= number of parameters, that means there is
+                % no extra dimension(s) in the attribute data
                 if ndims(attribute_value) > size(parameters_info, 1) + 2
                     error("Too many dimensions for attribute field '" + attribute_name + "' data!");
                 end
-
+                % Finally write data to result
                 attributes_info.(attribute_name) = attribute_value;
             end
         end
