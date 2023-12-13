@@ -63,7 +63,7 @@ classdef RectilinearDataset < LumericalDataset
             try
                 p.parse(varargin{:});
             catch ME
-                throwAsCaller(ME);
+                ME.throwAsCaller();
             end
 
             % Analyze and set values for three axes input (x,y,z)

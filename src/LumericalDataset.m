@@ -210,7 +210,7 @@ classdef (Abstract) LumericalDataset < matlab.mixin.Copyable
             % If 'ax' is a valid axes handle, plot on that axes object
             if nargin < 5
                 ax = gca(); % plot on current axis
-            elseif  ~(isscalar(ax) && isgraphics(ax, 'axes')) % valid axes handle
+            elseif ~(isscalar(ax) && isgraphics(ax, 'axes')) % valid axes handle
                 error("'ax' argument must be an valid axes handle!");
             end
 
@@ -276,7 +276,8 @@ classdef (Abstract) LumericalDataset < matlab.mixin.Copyable
                 end
                 unique_index = unique(interdep_indexes(~isnan(interdep_indexes)));
                 if numel(unique_index) > 1
-                    throwAsCaller(MException('', "Interdependent parameters for '" + para + "' should select the same index!"));
+                    ME = MException('', "Interdependent parameters for '" + para + "' should select the same index!");
+                    ME.throwAsCaller();
                 elseif numel(unique_index) == 1
                     obj.parameters_indexes(i) = unique_index;
                 end
@@ -316,7 +317,7 @@ classdef (Abstract) LumericalDataset < matlab.mixin.Copyable
                     end
                 end
             catch ME
-                throwAsCaller(ME)
+                ME.throwAsCaller();
             end
         end
 
@@ -326,7 +327,7 @@ classdef (Abstract) LumericalDataset < matlab.mixin.Copyable
             try
                 LumericalDataset.validateTextScalar(parameter_name, "Parameter name must be text scalar!");
             catch ME
-                throwAsCaller(ME);
+                ME.throwAsCaller();
             end
 
             tf_found = false;
@@ -341,7 +342,8 @@ classdef (Abstract) LumericalDataset < matlab.mixin.Copyable
                 end
             end
             if ~tf_found
-                throwAsCaller(MException('', "Parameter name '" + parameter_name + "' not found!"));
+                ME = MException('', "Parameter name '" + parameter_name + "' not found!");
+                ME.throwAsCaller();
             end
         end
 
@@ -350,7 +352,7 @@ classdef (Abstract) LumericalDataset < matlab.mixin.Copyable
             try
                 LumericalDataset.validateTextScalar(parameter_name, "Parameter name must be text scalar!");
             catch ME
-                throwAsCaller(ME);
+                ME.throwAsCaller();
             end
 
             tf_found = false;
@@ -362,7 +364,8 @@ classdef (Abstract) LumericalDataset < matlab.mixin.Copyable
                 end
             end
             if ~tf_found
-                throwAsCaller(MException('', "Parameter name '" + parameter_name + "' not found!"));
+                ME = MException('', "Parameter name '" + parameter_name + "' not found!");
+                ME.throwAsCaller();
             end
         end
 
@@ -372,7 +375,7 @@ classdef (Abstract) LumericalDataset < matlab.mixin.Copyable
                 LumericalDataset.validateTextScalar(attribute_name, "Attribute name must be text scalar!");
                 LumericalDataset.validateFieldInStruct(obj.attributes, attribute_name, "This attribute '" + attribute_name + "' is not found!");
             catch ME
-                throwAsCaller(ME);
+                ME.throwAsCaller();
             end
         end
 
@@ -418,37 +421,44 @@ classdef (Abstract) LumericalDataset < matlab.mixin.Copyable
         function validateTextScalar(input, errmsg)
             % Validate input as text scalar and throw if not
             if ~(ischar(input) && isrow(input)) && ~isStringScalar(input)
-                throwAsCaller(MException('', errmsg));
+                ME = MException('MATLAB:NotTextScalar', errmsg);
+                ME.throwAsCaller();
             end
         end
 
         function validateStructScalar(input, errmsg)
             % Validate input as struct scalar and throw if not
             if ~isstruct(input) || ~isscalar(input)
-                throwAsCaller(MException('', errmsg));
+                ME = MException('MATLAB:NotStructScalar', errmsg);
+                ME.throwAsCaller();
             end
         end
 
         function validateFieldInStruct(struct_in, field_in, errmsg)
             % Validate field exists in a struct
             if ~isfield(struct_in, field_in)
-                throwAsCaller(MException('', errmsg));
+                ME = MException('MATLAB:FieldNotInStruct', errmsg);
+                ME.throwAsCaller();
             end
         end
 
         function validateNonEmptyNumericVector(input, errmsg)
             % Validate input as non-empty vector (N-by-1 or 1-by-N)
             if ~(isnumeric(input) && isvector(input) && ~isempty(input))
-                throwAsCaller(MException('', errmsg));
+                ME = MException('MATLAB:NotNonEmptyNumericVector', errmsg);
+                ME.throwAsCaller();
             end
         end
 
         function validateIndex(idx, max_val)
+            % Validate input index makes sense in the context
             if ~isnumeric(idx) || floor(idx) ~= idx % test integer
-                throwAsCaller(MException('', "Must be an integer!"));
+                ME = MException('MATLAB:InvalidIndex', "Must be an integer!");
+                ME.throwAsCaller();
             end
             if idx < 1 || idx > max_val
-                throwAsCaller(MException('', "Must be between 1 and " + max_val + "!"));
+                ME = MException('MATLAB:InvalidIndex', "Must be between 1 and " + max_val + "!");
+                ME.throwAsCaller();
             end
         end
 
@@ -456,6 +466,8 @@ classdef (Abstract) LumericalDataset < matlab.mixin.Copyable
             % Slice off attribute data matrix based on the selected vector
             % component (NaN-scalar, 0-magnitude, 1-x, 2-y, 3-z)
             % on the second dimension
+            % 
+            % NOT checked
             if isnan(component_index) % NaN-scalar
                 result = attribute_data;
             elseif component_index == 0 % 0-magnitude
@@ -470,6 +482,8 @@ classdef (Abstract) LumericalDataset < matlab.mixin.Copyable
         function tf = isequalWithinTol(first, second, absTol, relTol)
             % Compare two numeric arrays equal within a tolerance limit
             % Absolute OR relative tolerance satisfied
+            % 
+            % NOT checked
             if nargin <= 3
                 relTol = 1e-10;
             end
@@ -488,12 +502,14 @@ classdef (Abstract) LumericalDataset < matlab.mixin.Copyable
         function tf = isRealVectorMonotonic(vec)
             % Returns true if a real-valued non-empty vector is strictly
             % monotonic (increasing or decreasing)
+            % 
+            % NOT checked
             tf =  all(diff(vec) > 0) || all(diff(vec) < 0);
         end
     end
 
     methods (Static, Access = protected)
-        % Helper functions only shared with base class
+        % Helper functions for dataset loading
         function dataset_type = parseDatasetStructure(lum_dataset)
             % Initially pase the dataset structure and determine dataset
             % type (matrix or rectilinear)
