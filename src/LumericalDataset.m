@@ -179,43 +179,64 @@ classdef (Abstract) LumericalDataset < matlab.mixin.Copyable
             end
         end
 
-        function hPlot = plotData1D(obj, parameter_name, attribute_name, ax)  % non-virtual
+        function hPlot = plotData1D(obj, parameter_name, attribute_name, scalar_operation, ax)  % non-virtual
             % This function makes a 1D plot based on the parameter name and
             % the attribute name.
+            arguments
+                obj
+                parameter_name
+                attribute_name
+                scalar_operation (1, 1) string {mustBeMember(scalar_operation, {'real', 'imag', 'abs', 'angle'})} = 'real'
+                ax = gca()
+            end
 
             % If 'ax' is a valid axes handle, plot on that axes object
-            if nargin < 4
-                ax = gca(); % plot on current axis
-            elseif  ~(isscalar(ax) && isgraphics(ax, 'axes')) % valid axes handle
-                error("'ax' argument must be an valid axes handle!");
+            if  ~(isscalar(ax) && isgraphics(ax, 'axes')) % valid axes handle
+                error("'ax' argument must be a valid axes handle!");
             end
 
             % Calls the respective polymorphic function for each object
             [xdata, ydata] = obj.getPlot1DData(parameter_name, attribute_name);
+            
+            ydata = applyScalarOperation(ydata, scalar_operation);
 
-            %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-            % Problem (also for 2D):
-            % complex numbers? real?
-            % Unit conversion and scaling?
-            hPlot = plot(ax, xdata, real(ydata));
+            if any(isnan(xdata)) || any(isinf(xdata)) % xdata has NaN or Inf?
+                error("Parameter:DataHasInvalidElement", ...
+                    "Parameter data contains invalid (NaN or Inf) elements! Unable to make the plot.");
+            end
+
+            if any(isnan(ydata)) || any(isinf(ydata)) % ydata has NaN or Inf?
+                error("Attribute:DataHasInvalidElement", ...
+                    "Attribute data contains invalid (NaN or Inf) elements! Unable to make the plot.");
+            end
+
+            hPlot = plot(ax, xdata, ydata);
             xlabel(ax, parameter_name, 'Interpreter', 'none');
             ylabel(ax, attribute_name, 'Interpreter', 'none');
-            set(ax, 'FontSize', 16);
         end
 
-        function [hSurf, hClb] = plotData2D(obj, parameter1_name, parameter2_name, attribute_name, ax)  % non-virtual
+        function [hSurf, hClb] = plotData2D(obj, parameter1_name, parameter2_name, attribute_name, scalar_operation, ax)  % non-virtual
             % This function makes a 2D plot based on the parameter names
             % and the attribute name.
 
+            arguments
+                obj
+                parameter1_name
+                parameter2_name
+                attribute_name
+                scalar_operation (1, 1) string {mustBeMember(scalar_operation, {'real', 'imag', 'abs', 'angle'})} = 'real'
+                ax = gca()
+            end
+
             % If 'ax' is a valid axes handle, plot on that axes object
-            if nargin < 5
-                ax = gca(); % plot on current axis
-            elseif ~(isscalar(ax) && isgraphics(ax, 'axes')) % valid axes handle
-                error("'ax' argument must be an valid axes handle!");
+            if ~(isscalar(ax) && isgraphics(ax, 'axes')) % valid axes handle
+                error("'ax' argument must be a valid axes handle!");
             end
 
             % Calls the respective polymorphic function for each object
             [xdata, ydata, zdata] = obj.getPlot2DData(parameter1_name, parameter2_name, attribute_name);
+
+            zdata = applyScalarOperation(zdata, scalar_operation);
 
             % Throw an error is xdata or ydata (parameters) is not monotonic
             if ~LumericalDataset.isRealVectorMonotonic(xdata)
@@ -223,6 +244,17 @@ classdef (Abstract) LumericalDataset < matlab.mixin.Copyable
             end
             if ~LumericalDataset.isRealVectorMonotonic(ydata)
                 error("y data is not monotonic! Cannot make 2D plot.");
+            end
+
+            if any(isnan(xdata)) || any(isinf(xdata)) || ...
+                any(isnan(ydata)) || any(isinf(ydata)) % xydata has NaN or Inf?
+                error("Parameter:DataHasInvalidElement", ...
+                    "Parameter data contains invalid (NaN or Inf) elements! Unable to make the plot.");
+            end
+
+            if any(isnan(zdata), 'all') || any(isinf(zdata), 'all') % zdata has NaN or Inf?
+                error("Attribute:DataHasInvalidElement", ...
+                    "Attribute data contains invalid (NaN or Inf) elements! Unable to make the plot.");
             end
 
             % Adjust data to make true "2D plot"
@@ -234,14 +266,13 @@ classdef (Abstract) LumericalDataset < matlab.mixin.Copyable
             zdata_new(1:end-1, 1:end-1) = zdata;
             zdata = zdata_new;
 
-            hSurf = surface(ax, xdata*1e9, ydata*1e9, real(zdata), 'EdgeColor', 'none');
+            hSurf = surface(ax, xdata*1e9, ydata*1e9, zdata, 'EdgeColor', 'none');
             xlim(ax, [min(xdata*1e9), max(xdata*1e9)]);
             ylim(ax, [min(ydata*1e9), max(ydata*1e9)]);
             xlabel(ax, parameter1_name + " (nm)", 'Interpreter', 'none');
             ylabel(ax, parameter2_name + " (nm)", 'Interpreter', 'none');
             colormap(ax, 'jet');
             hClb = colorbar;
-            set(ax, 'FontSize', 16);
             set(ax, 'Layer', 'top');
             box(ax, 'on');
         end
@@ -732,5 +763,20 @@ classdef (Abstract) LumericalDataset < matlab.mixin.Copyable
                 attributes_info.(attribute_name) = attribute_value;
             end
         end
+    end
+end
+
+%% Helper functions
+function ydata = applyScalarOperation(ydata, scalar_operation)
+% input already checked
+    switch scalar_operation
+        case 'real'
+            ydata = real(ydata);
+        case 'imag'
+            ydata = imag(ydata);
+        case 'abs'
+            ydata = abs(ydata);
+        case 'angle'
+            ydata = angle(ydata);
     end
 end
