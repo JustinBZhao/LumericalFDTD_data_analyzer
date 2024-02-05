@@ -159,12 +159,18 @@ classdef (Abstract) LumericalDataset < matlab.mixin.Copyable
 
         function setAttributeComponent(obj, attribute_name, component) % non-virtual
             % set the component (x,y,z,magnitude) for an attribute
+
+            arguments
+                obj
+                attribute_name
+                component {mustBeMember(component, ["x", "y", "z", "magnitude"])}
+            end
+
             obj.iCheckAttributeExist(attribute_name);
             if isnan(obj.attributes_component.(attribute_name))
                 error("Scalar attribute cannot be modified!");
             end
 
-            LumericalDataset.validateTextScalar(component, "Component name must be text!");
             switch component
                 case "x"
                     obj.attributes_component.(attribute_name) = 1;
@@ -174,8 +180,6 @@ classdef (Abstract) LumericalDataset < matlab.mixin.Copyable
                     obj.attributes_component.(attribute_name) = 3;
                 case "magnitude"
                     obj.attributes_component.(attribute_name) = 0;
-                otherwise
-                    error("Invalid component name!");
             end
         end
 
