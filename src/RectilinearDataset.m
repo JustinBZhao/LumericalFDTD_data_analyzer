@@ -49,7 +49,7 @@ classdef RectilinearDataset < LumericalDataset
             fprintf('z: %d point(s)\n', length(obj.z));
         end
 
-        function obj = setParameterSliceIndex(obj, varargin)
+        function setParameterSliceIndex(obj, varargin)
             % Rectilinear version of set slice index that also accepts 'x',
             % 'y' and 'z' as parameters
 

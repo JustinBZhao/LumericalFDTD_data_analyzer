@@ -279,7 +279,7 @@ classdef (Abstract) LumericalDataset < matlab.mixin.Copyable
     end
 
     methods (Abstract)
-        obj = setParameterSliceIndex(obj, varargin);
+        setParameterSliceIndex(obj, varargin);
         [xdata, ydata] = getPlot1DData(obj, parameter_name, attribute_name);
         [xdata, ydata, zdata] = getPlot2DData(obj, parameter1_name, parameter2_name, attribute_name);
         [x, y, z, data] = getPlot3DData(obj, parameter1_name, parameter2_name, parameter3_name, attribute_name);

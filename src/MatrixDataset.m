@@ -37,7 +37,7 @@ classdef MatrixDataset < LumericalDataset
             showInformation@LumericalDataset(obj);
         end
 
-        function obj = setParameterSliceIndex(obj, varargin)
+        function setParameterSliceIndex(obj, varargin)
             % Set slice index of one or more parameters (specified as
             % name-value pair)
 
