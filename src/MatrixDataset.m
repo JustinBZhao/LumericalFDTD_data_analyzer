@@ -135,6 +135,10 @@ classdef MatrixDataset < LumericalDataset
             para_value_list = cell(nargin - 1, 2); % nargin includes obj
             [~, para_value_list, para_remove_indexes] = obj.iGenerateParametersSliceIndexAndData(para_value_list, varargin{:});
 
+            if size(para_value_list, 1) >= size(obj.parameters, 1)
+                error("Should have at least one parameter left after removal!");
+            end
+                
             new_obj = obj.copy();
 
             % Adjust attributes
