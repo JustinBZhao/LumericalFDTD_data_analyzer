@@ -201,7 +201,7 @@ classdef (Abstract) LumericalDataset < matlab.mixin.Copyable
 
             % Calls the respective polymorphic function for each object
             [xdata, ydata] = obj.getPlot1DData(parameter_name, attribute_name);
-            
+
             ydata = applyScalarOperation(ydata, scalar_operation);
 
             if any(isnan(xdata)) || any(isinf(xdata)) % xdata has NaN or Inf?
@@ -257,7 +257,7 @@ classdef (Abstract) LumericalDataset < matlab.mixin.Copyable
             end
 
             if any(isnan(xdata)) || any(isinf(xdata)) || ...
-                any(isnan(ydata)) || any(isinf(ydata)) % xydata has NaN or Inf?
+                    any(isnan(ydata)) || any(isinf(ydata)) % xydata has NaN or Inf?
                 error("Parameter:DataHasInvalidElement", ...
                     "Parameter data contains invalid (NaN or Inf) elements! Unable to make the plot.");
             end
@@ -283,6 +283,44 @@ classdef (Abstract) LumericalDataset < matlab.mixin.Copyable
             hClb = colorbar;
             set(ax, 'Layer', 'top');
             box(ax, 'on');
+        end
+
+        function interp_data = getInterpolatedPlot2DData(obj, parameter1_name, parameter2_name, attribute_name, ...
+                Xq, Yq, method, extrapval, options)  % non-virtual
+            % This function acquires 2D plot data and then interpolate
+            % Z(X,Y) based on the query Xq and Yq points.
+            % Can specify 'method' and 'extrapval' as optional positional
+            % arguments as defined in 'interp2' function. Additionally, can
+            % specify 'ScalarOperation' as an optional name-value pair
+            % argument.
+            % The requirements for Xq and Yq is the same as 'interp2'
+            % function. They can take on different forms and do not need to
+            % be monotonic. See documentation.
+
+            arguments
+                obj
+                parameter1_name
+                parameter2_name
+                attribute_name
+                Xq
+                Yq
+                method = 'linear' % make sure this is the default for 'interp2'
+                extrapval = 'not specified'
+                options.ScalarOperation (1, 1) string {mustBeMember(options.ScalarOperation, {'real', 'imag', 'abs', 'angle'})} = 'real'
+            end
+
+            [xdata, ydata, zdata] = obj.getPlot2DData(parameter1_name, parameter2_name, attribute_name);
+            zdata = applyScalarOperation(zdata, options.ScalarOperation);
+
+            % Use EAFP to let the 'interp2' function check these arguments
+            % Do not check NaN, Inf or monotonicity of xdata or ydata.
+            % zdata can have NaN or Inf, interp2 still works
+            % Calls the respective polymorphic function for each object
+            if strcmp(extrapval, 'not specified') % user does not give value
+                interp_data = interp2(xdata, ydata, zdata, Xq, Yq, method);
+            else % user specified extrapval
+                interp_data = interp2(xdata, ydata, zdata, Xq, Yq, method, extrapval);
+            end
         end
     end
 
@@ -505,7 +543,7 @@ classdef (Abstract) LumericalDataset < matlab.mixin.Copyable
             % Slice off attribute data matrix based on the selected vector
             % component (NaN-scalar, 0-magnitude, 1-x, 2-y, 3-z)
             % on the second dimension
-            % 
+            %
             % NOT checked
             if isnan(component_index) % NaN-scalar
                 result = attribute_data;
@@ -521,7 +559,7 @@ classdef (Abstract) LumericalDataset < matlab.mixin.Copyable
         function tf = isequalWithinTol(first, second, absTol, relTol)
             % Compare two numeric arrays equal within a tolerance limit
             % Absolute OR relative tolerance satisfied
-            % 
+            %
             % NOT checked
             if nargin <= 3
                 relTol = 1e-10;
@@ -541,7 +579,7 @@ classdef (Abstract) LumericalDataset < matlab.mixin.Copyable
         function tf = isRealVectorMonotonic(vec)
             % Returns true if a real-valued non-empty vector is strictly
             % monotonic (increasing or decreasing)
-            % 
+            %
             % NOT checked
             tf =  all(diff(vec) > 0) || all(diff(vec) < 0);
         end
@@ -777,14 +815,14 @@ end
 %% Helper functions
 function ydata = applyScalarOperation(ydata, scalar_operation)
 % input already checked
-    switch scalar_operation
-        case 'real'
-            ydata = real(ydata);
-        case 'imag'
-            ydata = imag(ydata);
-        case 'abs'
-            ydata = abs(ydata);
-        case 'angle'
-            ydata = angle(ydata);
-    end
+switch scalar_operation
+    case 'real'
+        ydata = real(ydata);
+    case 'imag'
+        ydata = imag(ydata);
+    case 'abs'
+        ydata = abs(ydata);
+    case 'angle'
+        ydata = angle(ydata);
+end
 end
