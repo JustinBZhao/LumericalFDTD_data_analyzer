@@ -242,6 +242,12 @@ classdef (Abstract) LumericalDataset < matlab.mixin.Copyable
 
             zdata = applyScalarOperation(zdata, scalar_operation);
 
+            % Throw an error is xdata or ydata (parameters) is singleton
+            % dimension
+            if length(xdata) == 1 || length(ydata) == 1
+                error("Cannot make 2D plot with singleton dimension in xdata or ydata!");
+            end
+
             % Throw an error is xdata or ydata (parameters) is not monotonic
             if ~LumericalDataset.isRealVectorMonotonic(xdata)
                 error("x data is not monotonic! Cannot make 2D plot.");
@@ -262,8 +268,6 @@ classdef (Abstract) LumericalDataset < matlab.mixin.Copyable
             end
 
             % Adjust data to make true "2D plot"
-            % If length(xdata) == 1 or length(ydata) == 1, this program
-            % will not report an error but will have nothing plotted
             xdata = ([xdata(1); xdata(:)] + [xdata(:); xdata(end)])/2;
             ydata = ([ydata(1); ydata(:)] + [ydata(:); ydata(end)])/2;
             zdata_new = zeros(length(ydata), length(xdata));
