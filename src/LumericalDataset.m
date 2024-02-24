@@ -86,6 +86,163 @@ classdef (Abstract) LumericalDataset < matlab.mixin.Copyable
                 end
             end
         end
+
+        function new_obj = convertDatasetArray(obj_array, new_parameter_name, new_parameter_values)
+            % Convert an dataset array (from a manual parameter sweep) to
+            % one single dataset array
+            % Input dataset array can be 1D cell array of converted or
+            % unconverted datasets, or a regular 1D homogeneous array of
+            % converted datasets.
+
+            % Check obj_array, size, content
+            % Non-empty vector
+            if isempty(obj_array) || ~isvector(obj_array)
+                error("Must be a non-empty dataset vector!");
+            end
+            array_size = length(obj_array);
+            % Cell array or 1D array
+            if iscell(obj_array)
+                % Check every element is the same dataset type
+                type_name = unique(cellfun(@class, obj_array, 'UniformOutput', false));
+                if ~isscalar(type_name) % all elements should be one type
+                    error("Inhomogeneous type!");
+                end
+                if type_name == "RectilinearDataset"
+                    isrecti = true;
+                elseif type_name == "MatrixDataset"
+                    isrecti = false;
+                elseif type_name == "struct"
+                    try
+                        for ii = 1:array_size
+                            obj_array{ii} = LumericalDataset.createObject(obj_array{ii});
+                        end
+                    catch ME
+                        fprintf("Cannot process the datasets. At least one of the datasets cannot be interpreted as either the unconverted or converted dataset. See the error message for the reason.");
+                        rethrow(ME);
+                    end
+                else
+                    error("Wrong type!");
+                end
+            else % a homogeneous array **probably**
+                type_name = class(obj_array);
+                if type_name == "RectilinearDataset"
+                    isrecti = true;
+                elseif type_name == "MatrixDataset"
+                    isrecti = false;
+                else
+                    error("Wrong type!");
+                end
+                obj_array = num2cell(obj_array);
+            end
+            %%%%%% Check everything the same
+            % Check all existing parameter names the same
+            % Check all parameters the same value within an error limit
+            for ii = 1:array_size
+                if ~isequal(obj_array{ii}.parameters(:, 1), obj_array{1}.parameters(:, 1))
+                    error("Parameter names not the same!");
+                end
+                if isrecti
+                    if ~LumericalDataset.isequalWithinTol(obj_array{ii}.x, obj_array{1}.x)
+                        error("x not equal!");
+                    end
+                    if ~LumericalDataset.isequalWithinTol(obj_array{ii}.y, obj_array{1}.y)
+                        error("y not equal!");
+                    end
+                    if ~LumericalDataset.isequalWithinTol(obj_array{ii}.z, obj_array{1}.z)
+                        error("z not equal!");
+                    end
+                end
+                for iP = 1:obj_array{1}.num_parameters
+                    if ~LumericalDataset.isequalWithinTol(obj_array{ii}.parameters{iP, 2}, obj_array{1}.parameters{iP, 2})
+                        error("parameter not equal!");
+                    end
+                end
+            end
+            % Check parameter slice indexes, only give off warning if not
+            % matching
+            for ii = 1:array_size
+                if ~isequal(obj_array{ii}.parameters_indexes, obj_array{1}.parameters_indexes)
+                    warning("Parameter slice index different!");
+                end
+                if isrecti
+                    if ~isequal(obj_array{ii}.axes_indexes, obj_array{1}.axes_indexes)
+                        warning("Axes slice index different!");
+                    end
+                end
+            end
+            % Check attribute fields (names) the same
+            for ii = 1:array_size
+                if ~isequal(fieldnames(obj_array{ii}.attributes), fieldnames(obj_array{1}.attributes))
+                    error("Attribute sets not the same!");
+                end
+            end
+            % Check attribute plot components the same
+            for ii = 1:array_size
+                % Attributes_component could be NaN
+                if ~isequaln(obj_array{ii}.attributes_component, obj_array{1}.attributes_component)
+                    error("Attribute component not the same!");
+                end
+            end
+            %%%%%%%%%%%
+            % Check parameter name validity (must not collide with existing
+            % ones)
+            if ~isvarname(new_parameter_name) % also checked text scalar
+                error("New parameter name is not valid!");
+            end
+            % Name cannot collide with any existing parameter or attribute
+            % name
+            pnames = obj_array{1}.parameters(:, 1);
+            if ismember(new_parameter_name, [pnames{:}])
+                error("Name clash with existing parameter names!");
+            end
+            if ismember(new_parameter_name, fieldnames(obj_array{1}.attributes))
+                error("Name clash with existing attribute names!");
+            end
+            if isrecti && ismember(new_parameter_name, ["x", "y", "z"])
+                error("Name cannot be 'x', 'y' or 'z' for rectilinear datasets!");
+            end
+
+            % Check new parameter values (real, ...), size match
+            LumericalDataset.validateNonEmptyNumericVector(new_parameter_values, ...
+                "New parameter values is not a numeric vector!");
+            new_parameter_values = new_parameter_values(:); % convert to column vector, if applicable
+            if ~length(new_parameter_values) == array_size
+                error("New parameter values length does not match the dataset count!");
+            end
+            % Remove complex portion
+            if any(imag(new_parameter_values)) % has imaginary part?
+                warning("Parameter:DataIsComplex", ...
+                    "New parameter values data is complex! Takes the real part and proceed.");
+                new_parameter_values = real(new_parameter_values);
+            end
+            if any(isnan(new_parameter_values)) || any(isinf(new_parameter_values)) % real part has NaN or Inf?
+                warning("Parameter:DataHasInvalidElement", ...
+                    "New parameter value data contains invalid (NaN or Inf) elements! Something to keep in mind.");
+            end
+
+            % Start conversion
+            new_obj = obj_array{1}.copy();
+
+            % Can be sure that same type (scalar, vector) for each
+            % attribute because attributes_component has been checked to be
+            % equal for all datasets
+            % Concatenate attribute data
+            attributes_names = fieldnames(new_obj.attributes);
+            for iA = 1:length(attributes_names)
+                name = attributes_names{iA};
+                new_attr = cell(array_size, 1);
+                for ii = 1:array_size
+                    new_attr{ii} = obj_array{ii}.attributes.(name);
+                end
+                new_obj.attributes.(name) = cat(new_obj.num_parameters + 3, new_attr{:});
+            end
+            % Update parameters, num_parameters, parameters_indexes
+            new_obj.num_parameters = new_obj.num_parameters + 1;
+            new_obj.parameters{end+1, 1} = string(new_parameter_name);
+            new_obj.parameters{end, 2} = new_parameter_values(:);
+            new_obj.parameters{end, 3} = array_size;
+            new_obj.parameters_indexes(end+1, 1) = 1;
+        end
     end
 
     methods
