@@ -40,13 +40,15 @@ classdef RectilinearDataset < LumericalDataset
         end
 
         function showInformation(obj)
-            % Also print x,y,z information
+            % Print rectilinear dataset header
             fprintf("This dataset is a rectilinear dataset.\n");
+            fprintf('\n');
             showInformation@LumericalDataset(obj);
-            fprintf("Coordinate parameters:\n");
-            fprintf('x: %d point(s)\n', length(obj.x));
-            fprintf('y: %d point(s)\n', length(obj.y));
-            fprintf('z: %d point(s)\n', length(obj.z));
+            fprintf('\n');
+            % Print parameters information (including x, y, z)
+            LumericalDataset.printParametersInfo(vertcat({"x"; "y"; "z"}, obj.parameters(:, 1)), ...
+                [length(obj.x); length(obj.y); length(obj.z); cell2mat(obj.parameters(:, 3))], ...
+                [obj.axes_indexes; obj.parameters_indexes]);
         end
 
         function setParameterSliceIndex(obj, varargin)

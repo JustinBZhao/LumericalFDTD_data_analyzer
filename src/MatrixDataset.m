@@ -32,9 +32,13 @@ classdef MatrixDataset < LumericalDataset
         end
 
         function showInformation(obj)
-            % Print one additional line
+            % Print matrix dataset header
             fprintf("This dataset is a matrix dataset.\n");
+            fprintf('\n');
             showInformation@LumericalDataset(obj);
+            fprintf('\n');
+            % Print parameters information
+            LumericalDataset.printParametersInfo(obj.parameters(:, 1), [obj.parameters{:, 3}], obj.parameters_indexes);
         end
 
         function setParameterSliceIndex(obj, varargin)

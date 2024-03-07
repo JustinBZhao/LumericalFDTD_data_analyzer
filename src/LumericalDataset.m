@@ -253,7 +253,7 @@ classdef (Abstract) LumericalDataset < matlab.mixin.Copyable
 
         function showInformation(obj)
             % Display the information for an overview of this dataset
-            % Print attributes information
+            % Print attributes information (common to both dataset types)
             fprintf("%d attribute(s):\n", obj.num_attributes);
             attributes_fields = fieldnames(obj.attributes);
             max_name_length = max([cellfun(@length, attributes_fields); 4]); % max name length
@@ -282,23 +282,6 @@ classdef (Abstract) LumericalDataset < matlab.mixin.Copyable
                     end
                 end
                 fprintf("| %-*s | %s | %s |\n", max_name_length, field, type, component);
-            end
-
-            % Print parameters information
-            fprintf("%d parameter(s):\n", obj.num_parameters);
-            params = obj.parameters(:, 1);
-            max_digits_n_points = max(cellfun(@(x) length(num2str(x)), obj.parameters(:, 3))); % max number of points length
-            max_digits_slice_index = max([arrayfun(@(x) length(num2str(x)), obj.parameters_indexes); 11]);
-            fprintf("| %-*s | Slice index | Name\n", max_digits_n_points + 9, 'N_points');
-            fprintf("+%s+%s+------\n", repmat('-', 1, max_digits_n_points + 11), ...
-                repmat('-', 1, max_digits_slice_index + 2));
-            for i = 1:obj.num_parameters
-                fprintf("| %*d point(s) | %*d | ", max_digits_n_points, obj.parameters{i, 3}, ...
-                    max_digits_slice_index, obj.parameters_indexes(i)); % print parameter line
-                for param = params{i} % independent parameter names
-                    fprintf("%s ", param);
-                end
-                fprintf('\n');
             end
         end
 
@@ -739,6 +722,39 @@ classdef (Abstract) LumericalDataset < matlab.mixin.Copyable
             %
             % NOT checked
             tf =  all(diff(vec) > 0) || all(diff(vec) < 0);
+        end
+
+        function printParametersInfo(param_names, lengths, indexes)
+            % Print title
+            num_parameters = length(param_names);
+            fprintf("%d parameter set(s):\n", num_parameters);
+            % Max parameter name length (multiple interdependent parameters names
+            % separated by '|')
+            max_strlength_names = max(cellfun(@(x) strlength(join(x, " | ")), param_names));
+            max_strlength_names = max(max_strlength_names, strlength('Name(s)'));
+            % Max number of digits for parameter data length
+            max_digits_length = max(arrayfun(@(x) length(num2str(x)), lengths));
+            max_digits_length = max(max_digits_length, strlength('Length'));
+            % Max number of digits for parameter slice index
+            max_digits_sliceindex = max(arrayfun(@(x) length(num2str(x)), indexes));
+            max_digits_sliceindex = max(max_digits_sliceindex, strlength('Slice index'));
+            % Print header
+            fprintf("| %-*s | %-*s | %-*s |\n", ...
+                max_strlength_names, 'Name(s)', ...
+                max_digits_length, 'Length', ...
+                max_digits_sliceindex, 'Slice index');
+            % Print separator
+            fprintf("+%s+%s+%s+\n", ...
+                repmat('-', 1, max_strlength_names + 2), ...
+                repmat('-', 1, max_digits_length + 2), ...
+                repmat('-', 1, max_digits_sliceindex + 2));
+            % Print contents
+            for i = 1:num_parameters
+                fprintf("| %-*s | %*d | %*d |\n", ...
+                    max_strlength_names, join(param_names{i}, " | "), ...
+                    max_digits_length, lengths(i), ...
+                    max_digits_sliceindex, indexes(i));
+            end
         end
     end
 
