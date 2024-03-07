@@ -41,28 +41,6 @@ classdef MatrixDataset < LumericalDataset
             LumericalDataset.printParametersInfo(obj.parameters(:, 1), [obj.parameters{:, 3}], obj.parameters_indexes);
         end
 
-        function setParameterSliceIndex(obj, varargin)
-            % Set slice index of one or more parameters (specified as
-            % name-value pair)
-
-            % Initialize inputParser, add regular parameters
-            p = inputParser();
-            p.PartialMatching = false;
-            p = obj.iAddParametersToParser(p);
-
-            % Parse input argument
-            try
-                p.parse(varargin{:});
-            catch ME
-                ME.throwAsCaller();
-            end
-
-            % Analyze and set values for regular parameters
-            % If multiple interdependent parameters are declared, their
-            % indexes should be the same. Otherwise, report an error.
-            obj.iAnalyzeAndSetParsedParameter(p);
-        end
-
         function [xdata, ydata] = getPlot1DData(obj, parameter_name, attribute_name)
             % Get x and y data for 1D plot
             para_value_list = cell(1, 2); % 1D, xdata
@@ -392,6 +370,35 @@ classdef MatrixDataset < LumericalDataset
                     new_obj.attributes.(name) = new_obj.attributes.(name)(slicing_keep{:});
                 end
             end
+        end
+    end
+
+    methods (Access = protected)
+        function setParameterSlice(obj, mode_flag, varargin)
+            % Set slice position of one or more parameters. Name-value
+            % pairs consist of parameter name and index or value.
+            % If mode_flag is "index", than accept indexes.
+            % If mode_flag is "value", than accept values.
+            % This is a helper function and should not be used directly by
+            % the users.
+
+            % Initialize inputParser, add all parameters
+            p = inputParser();
+            p.PartialMatching = false;
+            p = obj.iAddAllParametersToParser(p, mode_flag);
+
+            % Parse input name-value pairs
+            try
+                p.parse(varargin{:});
+            catch ME
+                ME.throw();
+            end
+
+            % Analyze indexes or values provided for the parameters If
+            % multiple interdependent parameters are declared, they must
+            % resolve to the same index. Otherwise, report an error.
+            parsed_index_list = obj.iAnalyzeParsedParameters(p, mode_flag);
+            obj.iUpdateParametersSliceIndex(parsed_index_list);
         end
     end
 end

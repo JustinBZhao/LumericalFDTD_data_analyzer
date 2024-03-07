@@ -297,6 +297,28 @@ classdef (Abstract) LumericalDataset < matlab.mixin.Copyable
             result = obj.attributes.(attribute_name);
         end
 
+        function setParameterSliceIndex(obj, varargin) % non-virtual
+            % Set parameters (including x, y, z for rectilinear datasets)
+            % slice position based on input indexes. See function
+            % 'setParameterSlice'.
+            try
+                obj.setParameterSlice("index", varargin{:});
+            catch ME
+                ME.throw();
+            end
+        end
+
+        function setParameterSliceValue(obj, varargin) % non-virtual
+            % Set parameters (including x, y, z for rectilinear dataset)
+            % slice position based on input values. See function
+            % 'setParameterSlice'.
+            try
+                obj.setParameterSlice("value", varargin{:});
+            catch ME
+                ME.throw();
+            end
+        end
+
         function setAttributeComponent(obj, attribute_name, component) % non-virtual
             % set the component (x,y,z,magnitude) for an attribute
 
@@ -465,7 +487,6 @@ classdef (Abstract) LumericalDataset < matlab.mixin.Copyable
     end
 
     methods (Abstract)
-        setParameterSliceIndex(obj, varargin);
         [xdata, ydata] = getPlot1DData(obj, parameter_name, attribute_name);
         [xdata, ydata, zdata] = getPlot2DData(obj, parameter1_name, parameter2_name, attribute_name);
         [x, y, z, data] = getPlot3DData(obj, parameter1_name, parameter2_name, parameter3_name, attribute_name);
@@ -473,32 +494,62 @@ classdef (Abstract) LumericalDataset < matlab.mixin.Copyable
         new_obj = mergeDataset(obj, other_obj, varargin);
     end
 
+    methods (Abstract, Access = protected)
+        setParameterSlice(obj, mode_flag, varargin);
+    end
+
     methods (Access = protected)
-        function p = iAddParametersToParser(obj, p)
+        function p = iAddAllParametersToParser(obj, p, check_mode)
             % Add all parameters and their range validations to the parser
             for i = 1:size(obj.parameters, 1)
                 for para = obj.parameters{i, 1}
-                    p.addParameter(para, NaN, @(x) LumericalDataset.validateIndex(x, obj.parameters{i, 3}));
+                    if strcmp(check_mode, "index") % validate index
+                        p.addParameter(para, NaN, ...
+                            @(x) LumericalDataset.validateIndex(x, obj.parameters{i, 3}));
+                    elseif strcmp(check_mode, "value") % validate value
+                        p.addParameter(para, NaN, @LumericalDataset.mustBeRealNumericScalar);
+                    end
                 end
             end
         end
 
-        function iAnalyzeAndSetParsedParameter(obj, p)
-            % You can supply the same parameter multiple times and it will
-            % keep the last occurance of it
-            for i = 1:size(obj.parameters, 1)
-                interdep_indexes = [];
-                for para = obj.parameters{i, 1}
-                    interdep_indexes(end+1) = p.Results.(para);  % retrieve
+        function parsed_index_list = iAnalyzeParsedParameters(obj, p, parse_mode)
+            % Parse mode can be either "index" or "value"
+            parsed_index_list = NaN(obj.num_parameters, 1);
+            for i = 1:obj.num_parameters % each interdep params set
+                interdep_set_data = NaN(length(obj.parameters{i, 1}), 1); % either index or value
+                interdep_indexes = NaN(length(obj.parameters{i, 1}), 1);
+                for j = 1:length(obj.parameters{i, 1}) % loop through each interdep param
+                    interdep_set_data(j) = p.Results.(obj.parameters{i, 1}(j));
+                    if ~isnan(interdep_set_data(j)) && strcmp(parse_mode, "value")
+                        try % find the index corresponding to the value
+                        interdep_indexes(j) = LumericalDataset.findIndexFromValueWithinTol( ...
+                            interdep_set_data(j), obj.parameters{i, 2}(:, j), ...
+                            "Cannot find the value specified for '" + obj.parameters{i, 1}(j) + "'!");
+                        catch ME
+                            ME.throwAsCaller();
+                        end
+                    end
                 end
-                unique_index = unique(interdep_indexes(~isnan(interdep_indexes)));
-                if numel(unique_index) > 1
-                    ME = MException('', "Interdependent parameters for '" + para + "' should select the same index!");
+                if strcmp(parse_mode, "index")
+                    interdep_indexes = interdep_set_data;
+                end
+                % If multiple interdependent parameters are present, they
+                % must resolve to the same index
+                unique_index = unique(interdep_indexes(~isnan(interdep_indexes))); 
+                if numel(unique_index) > 1 % different indexes?
+                    ME = MException('', "Multiple interdependent parameters in the same set were selected, " + ...
+                        "but they do not resolve to the same index!");
                     ME.throwAsCaller();
                 elseif numel(unique_index) == 1
-                    obj.parameters_indexes(i) = unique_index;
-                end
+                    parsed_index_list(i) = unique_index;
+                end % no parameter might be specified. Simply skip
             end
+        end
+
+        function iUpdateParametersSliceIndex(obj, parsed_index_list)
+            obj.parameters_indexes(~isnan(parsed_index_list)) = ...
+                parsed_index_list(~isnan(parsed_index_list));
         end
 
         function [para_slice_indexes, para_value_list, para_remove_indexes] = ...
@@ -595,46 +646,16 @@ classdef (Abstract) LumericalDataset < matlab.mixin.Copyable
                 ME.throwAsCaller();
             end
         end
-
-        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-        % Deprecated, but this one takes in the value instead of the
-        % indexes
-        function parameters_value_list = parseParameterList(obj, parameters_value_list, arglist)
-            % Check varargin (should be parameter name-value pair)
-            %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-            % In this version, only one interdependent parameter is allowed
-            % to be declared. Further, pass in values rather than indexes.
-            n = length(arglist);
-            if mod(n, 2)
-                error('Parameter name-value not in pairs!');
-            end
-            for i = 1:2:n
-                parameter = arglist{i};
-                value = arglist{i+1};
-                para_loc = obj.iCheckAndFindParameter(parameter);
-                if ~isnumeric(value) || ~isscalar(value)
-                    error("The value for this parameter '" + parameter + "' is not a number!");
-                end
-
-                % Check if the parameter (or other interdep) has already been defined
-                if ~isnan(parameters_value_list(para_loc(1), 1))
-                    disp(parameter);
-                    error('Repeat definition of this parameter!');
-                end
-
-                % Find the index of the closest value
-                [~, value_index] = min(abs(obj.parameters{para_loc(1), 2}(:, para_loc(2)) - value));
-                parameters_value_list(para_loc(1), 1) = para_loc(2);
-                parameters_value_list(para_loc(1), 2) = value_index;
-            end
-
-            % Any not specified parameters are default to the first value
-            parameters_value_list(isnan(parameters_value_list(:, 1)), :) = 1;
-        end
     end
 
     methods (Static, Access = protected)
         % Helper functions to be shared with base and derived classes
+        function mustBeRealNumericScalar(input)
+            if ~(isnumeric(input) && isscalar(input) && isreal(input))
+                error("Value must be real numeric scalar!");
+            end
+        end
+
         function validateTextScalar(input, errmsg)
             % Validate input as text scalar and throw if not
             if ~(ischar(input) && isrow(input)) && ~isStringScalar(input)
@@ -714,6 +735,19 @@ classdef (Abstract) LumericalDataset < matlab.mixin.Copyable
             absolute_error = abs(first - second);
             relative_error = abs((first - second) ./ first);
             tf = all((absolute_error <= absTol) | (relative_error <= relTol), 'all');
+        end
+
+        function index = findIndexFromValueWithinTol(value, array, errmsg)
+            [~, index] = min(abs(array - value));
+            % Is it within tol?
+            if ~LumericalDataset.isequalWithinTol(value, array(index))
+                if nargin < 3
+                    ME = MException('', "Cannot find the value in the array within the tolerance level!");
+                else
+                    ME = MException('', errmsg);
+                end
+                ME.throwAsCaller();
+            end
         end
 
         function tf = isRealVectorMonotonic(vec)
