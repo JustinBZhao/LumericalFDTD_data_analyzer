@@ -41,6 +41,12 @@ classdef MatrixDataset < LumericalDataset
             LumericalDataset.printParametersInfo(obj.parameters(:, 1), [obj.parameters{:, 3}], obj.parameters_indexes);
         end
 
+        function result = getParameterData(obj, parameter_name)
+            % Get the data of a parameter
+            para_loc = obj.iCheckAndFindParameter(parameter_name);
+            result = obj.parameters{para_loc(1), 2}(:, para_loc(2));
+        end
+
         function [xdata, ydata] = getPlot1DData(obj, parameter_name, attribute_name)
             % Get x and y data for 1D plot
             para_value_list = cell(1, 2); % 1D, xdata

@@ -51,6 +51,23 @@ classdef RectilinearDataset < LumericalDataset
                 [obj.axes_indexes; obj.parameters_indexes]);
         end
 
+        function result = getParameterData(obj, parameter_name)
+            % Get the data of a parameter (including x, y or z)
+            LumericalDataset.validateTextScalar(parameter_name, "Parameter name must be text scalar!")
+            % Check if it is x, y or z, and get corresponding data
+            if strcmp(parameter_name, "x")
+                result = obj.x;
+            elseif strcmp(parameter_name, "y")
+                result = obj.y;
+            elseif strcmp(parameter_name, "z")
+                result = obj.z;
+            else
+                % Get non-xyz parameter data
+                para_loc = obj.iCheckAndFindParameter(parameter_name);
+                result = obj.parameters{para_loc(1), 2}(:, para_loc(2));
+            end
+        end
+
         function [xdata, ydata] = getPlot1DData(obj, parameter_name, attribute_name)
             % Get x and y data for 1D plot
             para_value_list = cell(1, 2); % 1D, xdata

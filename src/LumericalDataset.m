@@ -285,12 +285,6 @@ classdef (Abstract) LumericalDataset < matlab.mixin.Copyable
             end
         end
 
-        function result = getParameterData(obj, parameter_name) % non-virtual
-            % Get the data of a parameter
-            para_loc = obj.iCheckAndFindParameter(parameter_name);
-            result = obj.parameters{para_loc(1), 2}(:, para_loc(2));
-        end
-
         function result = getAttributeData(obj, attribute_name) % non-virtual
             % Get the data for an attribute
             obj.iCheckAttributeExist(attribute_name);
@@ -487,6 +481,7 @@ classdef (Abstract) LumericalDataset < matlab.mixin.Copyable
     end
 
     methods (Abstract)
+        result = getParameterData(obj, parameter_name);
         [xdata, ydata] = getPlot1DData(obj, parameter_name, attribute_name);
         [xdata, ydata, zdata] = getPlot2DData(obj, parameter1_name, parameter2_name, attribute_name);
         [x, y, z, data] = getPlot3DData(obj, parameter1_name, parameter2_name, parameter3_name, attribute_name);
