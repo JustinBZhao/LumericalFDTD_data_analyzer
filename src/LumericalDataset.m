@@ -86,6 +86,163 @@ classdef (Abstract) LumericalDataset < matlab.mixin.Copyable
                 end
             end
         end
+
+        function new_obj = convertDatasetArray(obj_array, new_parameter_name, new_parameter_values)
+            % Convert an dataset array (from a manual parameter sweep) to
+            % one single dataset array
+            % Input dataset array can be 1D cell array of converted or
+            % unconverted datasets, or a regular 1D homogeneous array of
+            % converted datasets.
+
+            % Check obj_array, size, content
+            % Non-empty vector
+            if isempty(obj_array) || ~isvector(obj_array)
+                error("Must be a non-empty dataset vector!");
+            end
+            array_size = length(obj_array);
+            % Cell array or 1D array
+            if iscell(obj_array)
+                % Check every element is the same dataset type
+                type_name = unique(cellfun(@class, obj_array, 'UniformOutput', false));
+                if ~isscalar(type_name) % all elements should be one type
+                    error("Inhomogeneous type!");
+                end
+                if type_name == "RectilinearDataset"
+                    isrecti = true;
+                elseif type_name == "MatrixDataset"
+                    isrecti = false;
+                elseif type_name == "struct"
+                    try
+                        for ii = 1:array_size
+                            obj_array{ii} = LumericalDataset.createObject(obj_array{ii});
+                        end
+                    catch ME
+                        fprintf("Cannot process the datasets. At least one of the datasets cannot be interpreted as either the unconverted or converted dataset. See the error message for the reason.");
+                        rethrow(ME);
+                    end
+                else
+                    error("Wrong type!");
+                end
+            else % a homogeneous array **probably**
+                type_name = class(obj_array);
+                if type_name == "RectilinearDataset"
+                    isrecti = true;
+                elseif type_name == "MatrixDataset"
+                    isrecti = false;
+                else
+                    error("Wrong type!");
+                end
+                obj_array = num2cell(obj_array);
+            end
+            %%%%%% Check everything the same
+            % Check all existing parameter names the same
+            % Check all parameters the same value within an error limit
+            for ii = 1:array_size
+                if ~isequal(obj_array{ii}.parameters(:, 1), obj_array{1}.parameters(:, 1))
+                    error("Parameter names not the same!");
+                end
+                if isrecti
+                    if ~LumericalDataset.isequalWithinTol(obj_array{ii}.x, obj_array{1}.x)
+                        error("x not equal!");
+                    end
+                    if ~LumericalDataset.isequalWithinTol(obj_array{ii}.y, obj_array{1}.y)
+                        error("y not equal!");
+                    end
+                    if ~LumericalDataset.isequalWithinTol(obj_array{ii}.z, obj_array{1}.z)
+                        error("z not equal!");
+                    end
+                end
+                for iP = 1:obj_array{1}.num_parameters
+                    if ~LumericalDataset.isequalWithinTol(obj_array{ii}.parameters{iP, 2}, obj_array{1}.parameters{iP, 2})
+                        error("parameter not equal!");
+                    end
+                end
+            end
+            % Check parameter slice indexes, only give off warning if not
+            % matching
+            for ii = 1:array_size
+                if ~isequal(obj_array{ii}.parameters_indexes, obj_array{1}.parameters_indexes)
+                    warning("Parameter slice index different!");
+                end
+                if isrecti
+                    if ~isequal(obj_array{ii}.axes_indexes, obj_array{1}.axes_indexes)
+                        warning("Axes slice index different!");
+                    end
+                end
+            end
+            % Check attribute fields (names) the same
+            for ii = 1:array_size
+                if ~isequal(fieldnames(obj_array{ii}.attributes), fieldnames(obj_array{1}.attributes))
+                    error("Attribute sets not the same!");
+                end
+            end
+            % Check attribute plot components the same
+            for ii = 1:array_size
+                % Attributes_component could be NaN
+                if ~isequaln(obj_array{ii}.attributes_component, obj_array{1}.attributes_component)
+                    error("Attribute component not the same!");
+                end
+            end
+            %%%%%%%%%%%
+            % Check parameter name validity (must not collide with existing
+            % ones)
+            if ~isvarname(new_parameter_name) % also checked text scalar
+                error("New parameter name is not valid!");
+            end
+            % Name cannot collide with any existing parameter or attribute
+            % name
+            pnames = obj_array{1}.parameters(:, 1);
+            if ismember(new_parameter_name, [pnames{:}])
+                error("Name clash with existing parameter names!");
+            end
+            if ismember(new_parameter_name, fieldnames(obj_array{1}.attributes))
+                error("Name clash with existing attribute names!");
+            end
+            if isrecti && ismember(new_parameter_name, ["x", "y", "z"])
+                error("Name cannot be 'x', 'y' or 'z' for rectilinear datasets!");
+            end
+
+            % Check new parameter values (real, ...), size match
+            LumericalDataset.validateNonEmptyNumericVector(new_parameter_values, ...
+                "New parameter values is not a numeric vector!");
+            new_parameter_values = new_parameter_values(:); % convert to column vector, if applicable
+            if ~length(new_parameter_values) == array_size
+                error("New parameter values length does not match the dataset count!");
+            end
+            % Remove complex portion
+            if any(imag(new_parameter_values)) % has imaginary part?
+                warning("Parameter:DataIsComplex", ...
+                    "New parameter values data is complex! Takes the real part and proceed.");
+                new_parameter_values = real(new_parameter_values);
+            end
+            if any(isnan(new_parameter_values)) || any(isinf(new_parameter_values)) % real part has NaN or Inf?
+                warning("Parameter:DataHasInvalidElement", ...
+                    "New parameter value data contains invalid (NaN or Inf) elements! Something to keep in mind.");
+            end
+
+            % Start conversion
+            new_obj = obj_array{1}.copy();
+
+            % Can be sure that same type (scalar, vector) for each
+            % attribute because attributes_component has been checked to be
+            % equal for all datasets
+            % Concatenate attribute data
+            attributes_names = fieldnames(new_obj.attributes);
+            for iA = 1:length(attributes_names)
+                name = attributes_names{iA};
+                new_attr = cell(array_size, 1);
+                for ii = 1:array_size
+                    new_attr{ii} = obj_array{ii}.attributes.(name);
+                end
+                new_obj.attributes.(name) = cat(new_obj.num_parameters + 3, new_attr{:});
+            end
+            % Update parameters, num_parameters, parameters_indexes
+            new_obj.num_parameters = new_obj.num_parameters + 1;
+            new_obj.parameters{end+1, 1} = string(new_parameter_name);
+            new_obj.parameters{end, 2} = new_parameter_values(:);
+            new_obj.parameters{end, 3} = array_size;
+            new_obj.parameters_indexes(end+1, 1) = 1;
+        end
     end
 
     methods
@@ -96,7 +253,7 @@ classdef (Abstract) LumericalDataset < matlab.mixin.Copyable
 
         function showInformation(obj)
             % Display the information for an overview of this dataset
-            % Print attributes information
+            % Print attributes information (common to both dataset types)
             fprintf("%d attribute(s):\n", obj.num_attributes);
             attributes_fields = fieldnames(obj.attributes);
             max_name_length = max([cellfun(@length, attributes_fields); 4]); % max name length
@@ -126,29 +283,6 @@ classdef (Abstract) LumericalDataset < matlab.mixin.Copyable
                 end
                 fprintf("| %-*s | %s | %s |\n", max_name_length, field, type, component);
             end
-
-            % Print parameters information
-            fprintf("%d parameter(s):\n", obj.num_parameters);
-            params = obj.parameters(:, 1);
-            max_digits_n_points = max(cellfun(@(x) length(num2str(x)), obj.parameters(:, 3))); % max number of points length
-            max_digits_slice_index = max([arrayfun(@(x) length(num2str(x)), obj.parameters_indexes); 11]);
-            fprintf("| %-*s | Slice index | Name\n", max_digits_n_points + 9, 'N_points');
-            fprintf("+%s+%s+------\n", repmat('-', 1, max_digits_n_points + 11), ...
-                repmat('-', 1, max_digits_slice_index + 2));
-            for i = 1:obj.num_parameters
-                fprintf("| %*d point(s) | %*d | ", max_digits_n_points, obj.parameters{i, 3}, ...
-                    max_digits_slice_index, obj.parameters_indexes(i)); % print parameter line
-                for param = params{i} % independent parameter names
-                    fprintf("%s ", param);
-                end
-                fprintf('\n');
-            end
-        end
-
-        function result = getParameterData(obj, parameter_name) % non-virtual
-            % Get the data of a parameter
-            para_loc = obj.iCheckAndFindParameter(parameter_name);
-            result = obj.parameters{para_loc(1), 2}(:, para_loc(2));
         end
 
         function result = getAttributeData(obj, attribute_name) % non-virtual
@@ -157,14 +291,42 @@ classdef (Abstract) LumericalDataset < matlab.mixin.Copyable
             result = obj.attributes.(attribute_name);
         end
 
+        function setParameterSliceIndex(obj, varargin) % non-virtual
+            % Set parameters (including x, y, z for rectilinear datasets)
+            % slice position based on input indexes. See function
+            % 'setParameterSlice'.
+            try
+                obj.setParameterSlice("index", varargin{:});
+            catch ME
+                ME.throw();
+            end
+        end
+
+        function setParameterSliceValue(obj, varargin) % non-virtual
+            % Set parameters (including x, y, z for rectilinear dataset)
+            % slice position based on input values. See function
+            % 'setParameterSlice'.
+            try
+                obj.setParameterSlice("value", varargin{:});
+            catch ME
+                ME.throw();
+            end
+        end
+
         function setAttributeComponent(obj, attribute_name, component) % non-virtual
             % set the component (x,y,z,magnitude) for an attribute
+
+            arguments
+                obj
+                attribute_name
+                component {mustBeMember(component, ["x", "y", "z", "magnitude"])}
+            end
+
             obj.iCheckAttributeExist(attribute_name);
             if isnan(obj.attributes_component.(attribute_name))
                 error("Scalar attribute cannot be modified!");
             end
 
-            LumericalDataset.validateTextScalar(component, "Component name must be text!");
             switch component
                 case "x"
                     obj.attributes_component.(attribute_name) = 1;
@@ -174,8 +336,6 @@ classdef (Abstract) LumericalDataset < matlab.mixin.Copyable
                     obj.attributes_component.(attribute_name) = 3;
                 case "magnitude"
                     obj.attributes_component.(attribute_name) = 0;
-                otherwise
-                    error("Invalid component name!");
             end
         end
 
@@ -197,7 +357,7 @@ classdef (Abstract) LumericalDataset < matlab.mixin.Copyable
 
             % Calls the respective polymorphic function for each object
             [xdata, ydata] = obj.getPlot1DData(parameter_name, attribute_name);
-            
+
             ydata = applyScalarOperation(ydata, scalar_operation);
 
             if any(isnan(xdata)) || any(isinf(xdata)) % xdata has NaN or Inf?
@@ -238,6 +398,12 @@ classdef (Abstract) LumericalDataset < matlab.mixin.Copyable
 
             zdata = applyScalarOperation(zdata, scalar_operation);
 
+            % Throw an error is xdata or ydata (parameters) is singleton
+            % dimension
+            if length(xdata) == 1 || length(ydata) == 1
+                error("Cannot make 2D plot with singleton dimension in xdata or ydata!");
+            end
+
             % Throw an error is xdata or ydata (parameters) is not monotonic
             if ~LumericalDataset.isRealVectorMonotonic(xdata)
                 error("x data is not monotonic! Cannot make 2D plot.");
@@ -247,7 +413,7 @@ classdef (Abstract) LumericalDataset < matlab.mixin.Copyable
             end
 
             if any(isnan(xdata)) || any(isinf(xdata)) || ...
-                any(isnan(ydata)) || any(isinf(ydata)) % xydata has NaN or Inf?
+                    any(isnan(ydata)) || any(isinf(ydata)) % xydata has NaN or Inf?
                 error("Parameter:DataHasInvalidElement", ...
                     "Parameter data contains invalid (NaN or Inf) elements! Unable to make the plot.");
             end
@@ -258,8 +424,6 @@ classdef (Abstract) LumericalDataset < matlab.mixin.Copyable
             end
 
             % Adjust data to make true "2D plot"
-            % If length(xdata) == 1 or length(ydata) == 1, this program
-            % will not report an error but will have nothing plotted
             xdata = ([xdata(1); xdata(:)] + [xdata(:); xdata(end)])/2;
             ydata = ([ydata(1); ydata(:)] + [ydata(:); ydata(end)])/2;
             zdata_new = zeros(length(ydata), length(xdata));
@@ -276,10 +440,48 @@ classdef (Abstract) LumericalDataset < matlab.mixin.Copyable
             set(ax, 'Layer', 'top');
             box(ax, 'on');
         end
+
+        function interp_data = getInterpolatedPlot2DData(obj, parameter1_name, parameter2_name, attribute_name, ...
+                Xq, Yq, method, extrapval, options)  % non-virtual
+            % This function acquires 2D plot data and then interpolate
+            % Z(X,Y) based on the query Xq and Yq points.
+            % Can specify 'method' and 'extrapval' as optional positional
+            % arguments as defined in 'interp2' function. Additionally, can
+            % specify 'ScalarOperation' as an optional name-value pair
+            % argument.
+            % The requirements for Xq and Yq is the same as 'interp2'
+            % function. They can take on different forms and do not need to
+            % be monotonic. See documentation.
+
+            arguments
+                obj
+                parameter1_name
+                parameter2_name
+                attribute_name
+                Xq
+                Yq
+                method = 'linear' % make sure this is the default for 'interp2'
+                extrapval = 'not specified'
+                options.ScalarOperation (1, 1) string {mustBeMember(options.ScalarOperation, {'real', 'imag', 'abs', 'angle'})} = 'real'
+            end
+
+            [xdata, ydata, zdata] = obj.getPlot2DData(parameter1_name, parameter2_name, attribute_name);
+            zdata = applyScalarOperation(zdata, options.ScalarOperation);
+
+            % Use EAFP to let the 'interp2' function check these arguments
+            % Do not check NaN, Inf or monotonicity of xdata or ydata.
+            % zdata can have NaN or Inf, interp2 still works
+            % Calls the respective polymorphic function for each object
+            if strcmp(extrapval, 'not specified') % user does not give value
+                interp_data = interp2(xdata, ydata, zdata, Xq, Yq, method);
+            else % user specified extrapval
+                interp_data = interp2(xdata, ydata, zdata, Xq, Yq, method, extrapval);
+            end
+        end
     end
 
     methods (Abstract)
-        obj = setParameterSliceIndex(obj, varargin);
+        result = getParameterData(obj, parameter_name);
         [xdata, ydata] = getPlot1DData(obj, parameter_name, attribute_name);
         [xdata, ydata, zdata] = getPlot2DData(obj, parameter1_name, parameter2_name, attribute_name);
         [x, y, z, data] = getPlot3DData(obj, parameter1_name, parameter2_name, parameter3_name, attribute_name);
@@ -287,32 +489,62 @@ classdef (Abstract) LumericalDataset < matlab.mixin.Copyable
         new_obj = mergeDataset(obj, other_obj, varargin);
     end
 
+    methods (Abstract, Access = protected)
+        setParameterSlice(obj, mode_flag, varargin);
+    end
+
     methods (Access = protected)
-        function p = iAddParametersToParser(obj, p)
+        function p = iAddAllParametersToParser(obj, p, check_mode)
             % Add all parameters and their range validations to the parser
             for i = 1:size(obj.parameters, 1)
                 for para = obj.parameters{i, 1}
-                    p.addParameter(para, NaN, @(x) LumericalDataset.validateIndex(x, obj.parameters{i, 3}));
+                    if strcmp(check_mode, "index") % validate index
+                        p.addParameter(para, NaN, ...
+                            @(x) LumericalDataset.validateIndex(x, obj.parameters{i, 3}));
+                    elseif strcmp(check_mode, "value") % validate value
+                        p.addParameter(para, NaN, @LumericalDataset.mustBeRealNumericScalar);
+                    end
                 end
             end
         end
 
-        function iAnalyzeAndSetParsedParameter(obj, p)
-            % You can supply the same parameter multiple times and it will
-            % keep the last occurance of it
-            for i = 1:size(obj.parameters, 1)
-                interdep_indexes = [];
-                for para = obj.parameters{i, 1}
-                    interdep_indexes(end+1) = p.Results.(para);  % retrieve
+        function parsed_index_list = iAnalyzeParsedParameters(obj, p, parse_mode)
+            % Parse mode can be either "index" or "value"
+            parsed_index_list = NaN(obj.num_parameters, 1);
+            for i = 1:obj.num_parameters % each interdep params set
+                interdep_set_data = NaN(length(obj.parameters{i, 1}), 1); % either index or value
+                interdep_indexes = NaN(length(obj.parameters{i, 1}), 1);
+                for j = 1:length(obj.parameters{i, 1}) % loop through each interdep param
+                    interdep_set_data(j) = p.Results.(obj.parameters{i, 1}(j));
+                    if ~isnan(interdep_set_data(j)) && strcmp(parse_mode, "value")
+                        try % find the index corresponding to the value
+                        interdep_indexes(j) = LumericalDataset.findIndexFromValueWithinTol( ...
+                            interdep_set_data(j), obj.parameters{i, 2}(:, j), ...
+                            "Cannot find the value specified for '" + obj.parameters{i, 1}(j) + "'!");
+                        catch ME
+                            ME.throwAsCaller();
+                        end
+                    end
                 end
-                unique_index = unique(interdep_indexes(~isnan(interdep_indexes)));
-                if numel(unique_index) > 1
-                    ME = MException('', "Interdependent parameters for '" + para + "' should select the same index!");
+                if strcmp(parse_mode, "index")
+                    interdep_indexes = interdep_set_data;
+                end
+                % If multiple interdependent parameters are present, they
+                % must resolve to the same index
+                unique_index = unique(interdep_indexes(~isnan(interdep_indexes))); 
+                if numel(unique_index) > 1 % different indexes?
+                    ME = MException('', "Multiple interdependent parameters in the same set were selected, " + ...
+                        "but they do not resolve to the same index!");
                     ME.throwAsCaller();
                 elseif numel(unique_index) == 1
-                    obj.parameters_indexes(i) = unique_index;
-                end
+                    parsed_index_list(i) = unique_index;
+                end % no parameter might be specified. Simply skip
             end
+        end
+
+        function iUpdateParametersSliceIndex(obj, parsed_index_list)
+            obj.parameters_indexes(~isnan(parsed_index_list)) = ...
+                parsed_index_list(~isnan(parsed_index_list));
         end
 
         function [para_slice_indexes, para_value_list, para_remove_indexes] = ...
@@ -409,46 +641,16 @@ classdef (Abstract) LumericalDataset < matlab.mixin.Copyable
                 ME.throwAsCaller();
             end
         end
-
-        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-        % Deprecated, but this one takes in the value instead of the
-        % indexes
-        function parameters_value_list = parseParameterList(obj, parameters_value_list, arglist)
-            % Check varargin (should be parameter name-value pair)
-            %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-            % In this version, only one interdependent parameter is allowed
-            % to be declared. Further, pass in values rather than indexes.
-            n = length(arglist);
-            if mod(n, 2)
-                error('Parameter name-value not in pairs!');
-            end
-            for i = 1:2:n
-                parameter = arglist{i};
-                value = arglist{i+1};
-                para_loc = obj.iCheckAndFindParameter(parameter);
-                if ~isnumeric(value) || ~isscalar(value)
-                    error("The value for this parameter '" + parameter + "' is not a number!");
-                end
-
-                % Check if the parameter (or other interdep) has already been defined
-                if ~isnan(parameters_value_list(para_loc(1), 1))
-                    disp(parameter);
-                    error('Repeat definition of this parameter!');
-                end
-
-                % Find the index of the closest value
-                [~, value_index] = min(abs(obj.parameters{para_loc(1), 2}(:, para_loc(2)) - value));
-                parameters_value_list(para_loc(1), 1) = para_loc(2);
-                parameters_value_list(para_loc(1), 2) = value_index;
-            end
-
-            % Any not specified parameters are default to the first value
-            parameters_value_list(isnan(parameters_value_list(:, 1)), :) = 1;
-        end
     end
 
     methods (Static, Access = protected)
         % Helper functions to be shared with base and derived classes
+        function mustBeRealNumericScalar(input)
+            if ~(isnumeric(input) && isscalar(input) && isreal(input))
+                error("Value must be real numeric scalar!");
+            end
+        end
+
         function validateTextScalar(input, errmsg)
             % Validate input as text scalar and throw if not
             if ~(ischar(input) && isrow(input)) && ~isStringScalar(input)
@@ -497,7 +699,7 @@ classdef (Abstract) LumericalDataset < matlab.mixin.Copyable
             % Slice off attribute data matrix based on the selected vector
             % component (NaN-scalar, 0-magnitude, 1-x, 2-y, 3-z)
             % on the second dimension
-            % 
+            %
             % NOT checked
             if isnan(component_index) % NaN-scalar
                 result = attribute_data;
@@ -513,7 +715,7 @@ classdef (Abstract) LumericalDataset < matlab.mixin.Copyable
         function tf = isequalWithinTol(first, second, absTol, relTol)
             % Compare two numeric arrays equal within a tolerance limit
             % Absolute OR relative tolerance satisfied
-            % 
+            %
             % NOT checked
             if nargin <= 3
                 relTol = 1e-10;
@@ -530,12 +732,58 @@ classdef (Abstract) LumericalDataset < matlab.mixin.Copyable
             tf = all((absolute_error <= absTol) | (relative_error <= relTol), 'all');
         end
 
+        function index = findIndexFromValueWithinTol(value, array, errmsg)
+            [~, index] = min(abs(array - value));
+            % Is it within tol?
+            if ~LumericalDataset.isequalWithinTol(value, array(index))
+                if nargin < 3
+                    ME = MException('', "Cannot find the value in the array within the tolerance level!");
+                else
+                    ME = MException('', errmsg);
+                end
+                ME.throwAsCaller();
+            end
+        end
+
         function tf = isRealVectorMonotonic(vec)
             % Returns true if a real-valued non-empty vector is strictly
             % monotonic (increasing or decreasing)
-            % 
+            %
             % NOT checked
             tf =  all(diff(vec) > 0) || all(diff(vec) < 0);
+        end
+
+        function printParametersInfo(param_names, lengths, indexes)
+            % Print title
+            num_parameters = length(param_names);
+            fprintf("%d parameter set(s):\n", num_parameters);
+            % Max parameter name length (multiple interdependent parameters names
+            % separated by '|')
+            max_strlength_names = max(cellfun(@(x) strlength(join(x, " | ")), param_names));
+            max_strlength_names = max(max_strlength_names, strlength('Name(s)'));
+            % Max number of digits for parameter data length
+            max_digits_length = max(arrayfun(@(x) length(num2str(x)), lengths));
+            max_digits_length = max(max_digits_length, strlength('Length'));
+            % Max number of digits for parameter slice index
+            max_digits_sliceindex = max(arrayfun(@(x) length(num2str(x)), indexes));
+            max_digits_sliceindex = max(max_digits_sliceindex, strlength('Slice index'));
+            % Print header
+            fprintf("| %-*s | %-*s | %-*s |\n", ...
+                max_strlength_names, 'Name(s)', ...
+                max_digits_length, 'Length', ...
+                max_digits_sliceindex, 'Slice index');
+            % Print separator
+            fprintf("+%s+%s+%s+\n", ...
+                repmat('-', 1, max_strlength_names + 2), ...
+                repmat('-', 1, max_digits_length + 2), ...
+                repmat('-', 1, max_digits_sliceindex + 2));
+            % Print contents
+            for i = 1:num_parameters
+                fprintf("| %-*s | %*d | %*d |\n", ...
+                    max_strlength_names, join(param_names{i}, " | "), ...
+                    max_digits_length, lengths(i), ...
+                    max_digits_sliceindex, indexes(i));
+            end
         end
     end
 
@@ -769,14 +1017,14 @@ end
 %% Helper functions
 function ydata = applyScalarOperation(ydata, scalar_operation)
 % input already checked
-    switch scalar_operation
-        case 'real'
-            ydata = real(ydata);
-        case 'imag'
-            ydata = imag(ydata);
-        case 'abs'
-            ydata = abs(ydata);
-        case 'angle'
-            ydata = angle(ydata);
-    end
+switch scalar_operation
+    case 'real'
+        ydata = real(ydata);
+    case 'imag'
+        ydata = imag(ydata);
+    case 'abs'
+        ydata = abs(ydata);
+    case 'angle'
+        ydata = angle(ydata);
+end
 end

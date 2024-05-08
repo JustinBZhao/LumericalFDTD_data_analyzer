@@ -32,31 +32,19 @@ classdef MatrixDataset < LumericalDataset
         end
 
         function showInformation(obj)
-            % Print one additional line
+            % Print matrix dataset header
             fprintf("This dataset is a matrix dataset.\n");
+            fprintf('\n');
             showInformation@LumericalDataset(obj);
+            fprintf('\n');
+            % Print parameters information
+            LumericalDataset.printParametersInfo(obj.parameters(:, 1), [obj.parameters{:, 3}], obj.parameters_indexes);
         end
 
-        function obj = setParameterSliceIndex(obj, varargin)
-            % Set slice index of one or more parameters (specified as
-            % name-value pair)
-
-            % Initialize inputParser, add regular parameters
-            p = inputParser();
-            p.PartialMatching = false;
-            p = obj.iAddParametersToParser(p);
-
-            % Parse input argument
-            try
-                p.parse(varargin{:});
-            catch ME
-                ME.throwAsCaller();
-            end
-
-            % Analyze and set values for regular parameters
-            % If multiple interdependent parameters are declared, their
-            % indexes should be the same. Otherwise, report an error.
-            obj.iAnalyzeAndSetParsedParameter(p);
+        function result = getParameterData(obj, parameter_name)
+            % Get the data of a parameter
+            para_loc = obj.iCheckAndFindParameter(parameter_name);
+            result = obj.parameters{para_loc(1), 2}(:, para_loc(2));
         end
 
         function [xdata, ydata] = getPlot1DData(obj, parameter_name, attribute_name)
@@ -135,6 +123,10 @@ classdef MatrixDataset < LumericalDataset
             para_value_list = cell(nargin - 1, 2); % nargin includes obj
             [~, para_value_list, para_remove_indexes] = obj.iGenerateParametersSliceIndexAndData(para_value_list, varargin{:});
 
+            if size(para_value_list, 1) >= size(obj.parameters, 1)
+                error("Should have at least one parameter left after removal!");
+            end
+                
             new_obj = obj.copy();
 
             % Adjust attributes
@@ -384,6 +376,35 @@ classdef MatrixDataset < LumericalDataset
                     new_obj.attributes.(name) = new_obj.attributes.(name)(slicing_keep{:});
                 end
             end
+        end
+    end
+
+    methods (Access = protected)
+        function setParameterSlice(obj, mode_flag, varargin)
+            % Set slice position of one or more parameters. Name-value
+            % pairs consist of parameter name and index or value.
+            % If mode_flag is "index", than accept indexes.
+            % If mode_flag is "value", than accept values.
+            % This is a helper function and should not be used directly by
+            % the users.
+
+            % Initialize inputParser, add all parameters
+            p = inputParser();
+            p.PartialMatching = false;
+            p = obj.iAddAllParametersToParser(p, mode_flag);
+
+            % Parse input name-value pairs
+            try
+                p.parse(varargin{:});
+            catch ME
+                ME.throw();
+            end
+
+            % Analyze indexes or values provided for the parameters If
+            % multiple interdependent parameters are declared, they must
+            % resolve to the same index. Otherwise, report an error.
+            parsed_index_list = obj.iAnalyzeParsedParameters(p, mode_flag);
+            obj.iUpdateParametersSliceIndex(parsed_index_list);
         end
     end
 end

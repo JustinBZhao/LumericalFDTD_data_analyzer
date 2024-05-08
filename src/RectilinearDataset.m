@@ -40,38 +40,32 @@ classdef RectilinearDataset < LumericalDataset
         end
 
         function showInformation(obj)
-            % Also print x,y,z information
+            % Print rectilinear dataset header
             fprintf("This dataset is a rectilinear dataset.\n");
+            fprintf('\n');
             showInformation@LumericalDataset(obj);
-            fprintf("Coordinate parameters:\n");
-            fprintf('x: %d point(s)\n', length(obj.x));
-            fprintf('y: %d point(s)\n', length(obj.y));
-            fprintf('z: %d point(s)\n', length(obj.z));
+            fprintf('\n');
+            % Print parameters information (including x, y, z)
+            LumericalDataset.printParametersInfo(vertcat({"x"; "y"; "z"}, obj.parameters(:, 1)), ...
+                [length(obj.x); length(obj.y); length(obj.z); cell2mat(obj.parameters(:, 3))], ...
+                [obj.axes_indexes; obj.parameters_indexes]);
         end
 
-        function obj = setParameterSliceIndex(obj, varargin)
-            % Rectilinear version of set slice index that also accepts 'x',
-            % 'y' and 'z' as parameters
-
-            % Initialize inputParser, add regular and axes parameters
-            p = inputParser();
-            p.PartialMatching = false;
-            p = obj.iAddParametersToParser(p);
-            p = obj.iAddAxesToParser(p); % add x, y, z
-
-            % Parse input argument
-            try
-                p.parse(varargin{:});
-            catch ME
-                ME.throwAsCaller();
+        function result = getParameterData(obj, parameter_name)
+            % Get the data of a parameter (including x, y or z)
+            LumericalDataset.validateTextScalar(parameter_name, "Parameter name must be text scalar!")
+            % Check if it is x, y or z, and get corresponding data
+            if strcmp(parameter_name, "x")
+                result = obj.x;
+            elseif strcmp(parameter_name, "y")
+                result = obj.y;
+            elseif strcmp(parameter_name, "z")
+                result = obj.z;
+            else
+                % Get non-xyz parameter data
+                para_loc = obj.iCheckAndFindParameter(parameter_name);
+                result = obj.parameters{para_loc(1), 2}(:, para_loc(2));
             end
-
-            % Analyze and set values for three axes input (x,y,z)
-            obj.iAnalyzeAndSetParsedAxes(p);
-            % Analyze and set values for regular parameters
-            % If multiple interdependent parameters are declared, their
-            % indexes should be the same. Otherwise, report an error.
-            obj.iAnalyzeAndSetParsedParameter(p);
         end
 
         function [xdata, ydata] = getPlot1DData(obj, parameter_name, attribute_name)
@@ -229,21 +223,30 @@ classdef RectilinearDataset < LumericalDataset
     end
 
     methods (Access = private)
-        function p = iAddAxesToParser(obj, p)
-            p.addParameter('x', NaN, @(x) LumericalDataset.validateIndex(x, length(obj.x)));
-            p.addParameter('y', NaN, @(x) LumericalDataset.validateIndex(x, length(obj.y)));
-            p.addParameter('z', NaN, @(x) LumericalDataset.validateIndex(x, length(obj.z)));
+        function p = iAddAxesToParser(obj, p, check_mode)
+            if strcmp(check_mode, "index") % validate index
+                p.addParameter('x', NaN, @(x) LumericalDataset.validateIndex(x, length(obj.x)));
+                p.addParameter('y', NaN, @(x) LumericalDataset.validateIndex(x, length(obj.y)));
+                p.addParameter('z', NaN, @(x) LumericalDataset.validateIndex(x, length(obj.z)));
+            elseif strcmp(check_mode, "value") % validate value
+                p.addParameter('x', NaN, @LumericalDataset.mustBeRealNumericScalar);
+                p.addParameter('y', NaN, @LumericalDataset.mustBeRealNumericScalar);
+                p.addParameter('z', NaN, @LumericalDataset.mustBeRealNumericScalar);
+            end
         end
 
-        function iAnalyzeAndSetParsedAxes(obj, p)
-            if (~isnan(p.Results.x))
-                obj.axes_indexes(1) = p.Results.x;
-            end
-            if (~isnan(p.Results.y))
-                obj.axes_indexes(2) = p.Results.y;
-            end
-            if (~isnan(p.Results.z))
-                obj.axes_indexes(3) = p.Results.z;
+        function iAnalyzeAndSetParsedAxes(obj, p, parse_mode)
+            axisnames = ["x", "y", "z"];
+            for iA = 1:3
+                result = p.Results.(axisnames(iA));
+                if ~isnan(result)
+                    if strcmp(parse_mode, "value")
+                        result = LumericalDataset.findIndexFromValueWithinTol( ...
+                            result, obj.(axisnames(iA)), ...
+                            "Cannot find the value specified for '" + axisnames(iA) + "'!");
+                    end
+                    obj.axes_indexes(iA) = result;
+                end
             end
         end
 
@@ -282,6 +285,34 @@ classdef RectilinearDataset < LumericalDataset
             end
 
             arglist = varargin;
+        end
+    end
+
+    methods (Access = protected)
+        function setParameterSlice(obj, mode_flag, varargin)
+            % Rectilinear version of set slice index that also accepts 'x',
+            % 'y' and 'z' as parameters
+
+            % Initialize inputParser, add all regular and axes parameters
+            p = inputParser();
+            p.PartialMatching = false;
+            p = obj.iAddAllParametersToParser(p, mode_flag);
+            p = obj.iAddAxesToParser(p, mode_flag); % add x, y, z
+
+            % Parse input name-value pairs
+            try
+                p.parse(varargin{:});
+            catch ME
+                ME.throw();
+            end
+
+            % Analyze and set values for three axes input (x,y,z)
+            obj.iAnalyzeAndSetParsedAxes(p, mode_flag);
+            % Analyze indexes or values provided for the parameters If
+            % multiple interdependent parameters are declared, they must
+            % resolve to the same index. Otherwise, report an error.
+            parsed_index_list = obj.iAnalyzeParsedParameters(p, mode_flag);
+            obj.iUpdateParametersSliceIndex(parsed_index_list);
         end
     end
 end
