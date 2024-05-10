@@ -1,5 +1,5 @@
+#LumericalDataset library v0.1.0
 ## General information
-LumericalDataset library v 1.0
 This is a MATLAB library for processing Lumerical datasets with ease.
 For more information on Lumerical dataset, see [here](https://optics.ansys.com/hc/en-us/articles/360034409554-Introduction-to-Lumerical-datasets).
 This library uses ["redblueTecplot"](https://www.mathworks.com/matlabcentral/fileexchange/69559-diverging-redblue-colormap-from-tecplot) from MATLAB file exchange. Copyright (c) 2018, Fernando Zigunov.
@@ -60,7 +60,7 @@ To work with this library, you first need to convert the MATLAB dataset exported
 converted_dataset = LumericalDataset.createObject(dataset);
 ```
 And ``converted_dataset`` is the converted result. Now you can perform various operations on this object.
-### Error while loading dataset
+### Error while loading the dataset
 Occasionally, you might see that the dataset was not converted, instead, an error was thrown. the ``createObject`` function performs extensive checking to ensure that the target being converted is indeed a dataset. Otherwise, it is carefully (hopefully) written to report specific errors regarding why the target cannot be recognized as a dataset. In almost all situations, the dataset directly exported from Lumerical should pass all the checkings. However, there are very rare situations where I don't think the dataset has any value to be further studied, even though it is legal in Lumerical (for example, a dataset with no attribute), so I will reject it.
 
 These errors are here to help you, and to make sure that various assumtions (invariants) about the data inside the class holds. Don't be scared away.
@@ -71,41 +71,58 @@ Below is the list of functions that have been implemented in this library, organ
 ### Data loading
 + [static] ``obj = LumericalDataset.createObject(lum_dataset)``
 This is a static function. ``lum_dataset`` is the struct that is contained inside Lumerical's exported ``.mat`` file. This function will correctly resolve the type of the dataset (matrix dataset or rectilinear dataset) automatically. Any conversion that does not result in an error gives you a valid object.
-+ [static] ``converted_obj = createObjectFromMat(mat_name, varargin)``
-This is a static function. Instead of passing the struct object as an input argument, you can directly specify the name of the ``.mat`` file in ``mat_name``. You can also specify variables names to be loaded in additional arguments.
++ [static] ``converted_obj = LumericalDataset.createObjectFromMat(mat_name, [*variable])``
+This is a static function. Instead of passing the struct object as an input argument, you can directly specify the name of the ``.mat`` file in ``mat_name``. Additionally, you can also specify the list of variable names to be loaded in ``*variable``.
 Note that in this case, ``converted_object`` is a struct containing each converted variable inside the original ``.mat`` file. Variables that are not Lumerical datasets are not converted. This is especially useful when the ``.mat`` file contains a few datasets, as well as some other non-dataset information.
 + ``obj = MatrixDataset(lum_dataset)`` or ``obj = RectilinearDataset(lum_dataset)`` (not recommended)
 If you know which type of dataset you are converting (matrix dataset or rectilinear dataset), you can choose the correct syntax to manually perform the conversion. You **DO NOT** have to do it this way!
++ [static] ``new_obj = LumericalDataset.convertDatasetArray(obj_array, new_parameter_name, new_parameter_values)``
+This is a static function. ``obj_array`` is an 1D array (or cell array) of unconverted or converted datasets. This function concatenates the datasets into one single dataset, ``new_obj``, if the parameters are exactly the same in each dataset and the attributes are the same except their values. After concatenation, a new parameter will be created, with ``new_parameter_name``, and ``new_parameter_values``. The resulting dataset will be ``new_obj``.
 ### Display information
-+ ``showInformation(obj)``
-This function will print the information of the dataset onto the command window. The information includes a list of parameters, attributes, etc.
-### Get simple data
-+ ``result = getParameterData(obj, parameter_name)``
-Get the 1D vector data corresponding to a specific parameter. Note that for rectilinear datasets, to retrieve x, y, or z, you should directly call ``x = obj.x`` or similar instead of using this function.
-+ ``result = getAttributeData(obj, attribute_name)`` (not recommended)
-Get the data corresponding to a specific attribute. Use of this function is not recommended because the returned ``result`` will be a multi-dimensional matrix that is exactly how it is stored inside the dataset. Without knowing the details of the implementation of this library, the ``result`` is not useful.
++ ``obj.showInformation()``
+This function will print out the basic information of the dataset, including the parameters and the attributes.
+### Get raw data
++ ``result = obj.getParameterData(parameter_name)``
+Retrieve the vector data corresponding to a specific parameter ``parameter_name``. For rectilinear datasets, you can also call ``x = obj.x``, for example, to retrieve x, y, or z data.
++ ``result = obj.getAttributeData(attribute_name)`` (not recommended)
+Retrieve the data corresponding to a specific attribute ``attribute_name``. Use of this function is not recommended unless you understand the implementation detail of this library. Try ``getPlot1DData()``, ``getPlot2DData()`` or ``getPlot3DData()`` to retrieve attribute data corresponding to specific parameters.
 ### Set operations
-+ ``setParameterSliceIndex(obj, varargin)``
-Set the slice index of a parameter, including x, y, or z in rectilinear datasets. You can specify an arbitrary number of parameters, in the form of "parameter name-index" pair.
++ ``obj.setParameterSliceIndex([**parameter_name=index])``
+Set the slice index of one or more parameters, including x, y, or z in rectilinear datasets. Input should be in the form of "parameter\_name-index" pair(s).
 The slice index for each parameter is 1 by default. The value persists throughout the lifetime of the dataset object.
-+ ``setAttributeComponent(obj, attribute_name, component)``
-Set the component to plot for a vector attribute. ``component`` must be "x", "y", "z" or "magnitude". Cannot set this property for any scalar attribute (will receive an error).
-The attribute component for each vector attribute is set to "magnitude" by default. And the selection of this property persists throughout the lifetime of the dataset object.
-### Get data for plot
-+ ``[xdata, ydata] = getPlot1DData(obj, parameter_name, attribute_name)``
-Get the data for 1D plot. ``xdata`` is the parameter vector, ``ydata`` is the attribute data against that parameter, after slicing off all other dimensions. 
-+ ``[xdata, ydata, zdata] = getPlot2DData(obj, parameter1_name, parameter2_name, attribute_name)``
-Get the data for 2D plot. ``xdata`` is the parameter 1 vector, ``ydata`` is the parameter 2 vector, and ``zdata`` is the attribute data, against these two parameters and after slicing off all other dimensions.
-+ ``[x, y, z, data] = getPlot3DData(obj, parameter1_name, parameter2_name, parameter3_name, attribute_name)``
-Get the data for 3D plot. ``x``, ``y`` and ``z`` correspond to 3 parameters, and ``data`` is the attribute after slicing off all other dimensions. You can only get data for 3D plot, but not actually plotting in 3D.
++ ``obj.setParameterSliceValue([**parameter_name=value])``
+Instead of the index, specify the value.
++ ``obj.setAttributeComponent(attribute_name, component)``
+Set the component to plot for a vector attribute. ``component`` must be "x", "y", "z" or "magnitude". Cannot set this property for any scalar attribute (and will receive an error).
+The attribute component for each vector attribute is set to "magnitude" by default. In addition, this property is stored in the dataset and will persists throughout the lifetime of the dataset object.
+### Get data for making plots
++ ``[xdata, ydata] = obj.getPlot1DData(parameter_name, attribute_name)``
+Retrieve the data for 1D plot. ``xdata`` is the parameter vector, ``ydata`` is the attribute data against that parameter, after slicing off all other dimensions. 
++ ``[xdata, ydata, zdata] = obj.getPlot2DData(parameter1_name, parameter2_name, attribute_name)``
+Retrieve the data for 2D plot. ``xdata`` is the parameter\_1 vector, ``ydata`` is the parameter\_2 vector, and ``zdata`` is the attribute data, against these two parameters and after slicing off all other dimensions.
+Note that for 2D plots, the MATLAB convention is that ``size(zdata) = [length(ydata), length(xdata)]``.
++ ``[x, y, z, data] = obj.getPlot3DData(parameter1_name, parameter2_name, parameter3_name, attribute_name)``
+Retrieve the data for 3D plot. ``x``, ``y`` and ``z`` correspond to 3 parameters, and ``data`` is the attribute after slicing off all other dimensions. Currently, MATLAB does not have a way to image "3D" data. Therefore, this function does not have the corresponding plotting function.
+Note that following MATLAB convention, ``size(data) = [length(y), length(x), length(z)]``.
++ ``interp_data = obj.getInterpolatedPlot2DData(parameter1_name, parameter2_name, attribute_name, Xq, Yq, method, extrapval, options)``
+When retrieving the data for 2D plot, also perform an interpolation on to the new x (``Xq``) and new y (``Yq``). Optionally specify ``method``, ``extrapval`` and ``options``. Please see MATLAB document for ``interp2`` function for more details.
+Since an interpolation is performed from ``Xq`` and ``Yq``, only the interpolated zdata ``interp_data`` is returned from the function.
 ### Make plots
-+ ``hPlot = plotData1D(obj, parameter_name, attribute_name, scalar_operation, ax)``
-Make a 1D plot. ``scalar_operation`` and ``ax`` are optional positional arguments. The handle to the line object is returned as ``hPlot``.
-+ ``[hSurf, hClb] = plotData2D(obj, parameter1_name, parameter2_name, attribute_name, scalar_operation, ax)``
-Make a 2D plot. ``scalar_operation`` and ``ax`` are optional positional arguments. The handles to the surface object and the colorbar object are returned as ``hSurf`` and ``hClb``.
-This 2D plot is actually a surface plot in 2D view. To make it more realistic, the coordinates are slightly adjusted. ``XData``, ``YData`` and ``ZData`` in the surface object (by calling ``hSurf.XData``, for example) do not equal to ``xdata``, ``ydata`` or ``zdata`` from ``getPlot2DData()``.
++ ``hPlot = obj.plotData1D(parameter_name, attribute_name, scalar_operation, ax)``
+Make a 1D plot with ``parameter_name`` against ``attribute_name``. Optionally, you can specify the scalar operation ("real" (default), "imag", "abs" or "angle") ``scalar_operation`` on the attribute data. You can also specify the axis ``ax`` to be plot on. The handle to the line object is returned as ``hPlot``.
++ ``[hSurf, hClb] = obj.plotData2D(parameter1_name, parameter2_name, attribute_name, scalar_operation, ax)``
+Make a 2D plot with ``parameter1_name`` (x) and ``parameter2_name`` (y) against ``attribute_name``. Similarly, you can optionally provide ``scalar_operation`` and ``ax``. The handles to the surface object and the colorbar object are returned as ``hSurf`` and ``hClb``, respectively.
+The 2D plot produced here is a surface plot in 2D view. However, ``hSurf.XData``, ``hSurf.YData`` and ``hSurf.ZData`` do not equal to ``xdata``, ``ydata`` or ``zdata`` from ``getPlot2DData()``[^1].
 ### Dataset manipulation
-+ ``new_obj = removeDimensions(obj, varargin);``
-Remove a few dimensions (parameters) from the dataset. Each attribute data will be sliced along these dimensions based on slice index. Since x, y, and z must be present in a rectilinear dataset, removing them is equivalent to reducing the length of these position vectors to 1.
-+ ``new_obj = mergeDataset(obj, other_obj, varargin);``
-Merge 2 datasets together. The dataset must have everything the same, except one parameter data. There are a few options for this function.
++ ``new_obj = obj.removeDimensions([*parameter_name]);``
+Remove one or more parameters from the dataset specified by ``*parameter_names``. The dimensions in each attribute data corresponding to these parameters will be removed by slicing along these dimensions based on the slice index. x, y, and z positional vectors in a rectilinear dataset will be treated slightly differently, as they will be reduced to a singleton dimension instead of being completely removed [^2].
++ ``new_obj = obj.mergeDataset(other_obj, [**option=value]);``
+Merge 2 datasets (``obj`` and ``other_obj``) together. Both datasets must have the same sets of parameters, except that one of the parameter data could be different. Can specify options in the form of option-value pairs.
+"ParameterName": specify the name of the parameter to merge. Otherwise, it will be inferred from the content in the datasets.
+"RemoveDuplicate": default is``false``. If ``true``, when merging the parameter data that is different between two datasets, Duplication values will be removed and the corresponding attributes data will be averaged to yield the new values. In this context, "duplication" is defined as values different within the tolerance level, specified by the "Tolerance" option.
+"Sort": default is ``false``. If ``true``, the merge parameter data will also be sorted, along with the corresponding attributes data.
+"Tolerance": default is [0, 0]. Specify as a two-element non-negative numeric vector in the form of [AbsoluteTolerance, RelativeTolerance]. The tolerance level is satisfied when either absolute or relative tolerance is satisfied.
+**Note**: this function for rectilinear datasets is not yet implemented.
+
+[^1]: This is because the surface plot sets the color of the cell edges, not the cell face area. Without additional treatment, the last row and last column of the attribute data will not be displayed in the surface plot.
+[^2]: This is because rectilinear datasets require x, y and z positional vectors to be present. Even after they are removed, they will still show up in ``showInformation()`` outputs.
