@@ -108,10 +108,19 @@ Note that following MATLAB convention, ``size(data) = [length(y), length(x), len
 When retrieving the data for 2D plot, also perform an interpolation on to the new x (``Xq``) and new y (``Yq``). Optionally specify ``method``, ``extrapval`` and ``options``. Please see MATLAB document for ``interp2`` function for more details.
 Since an interpolation is performed from ``Xq`` and ``Yq``, only the interpolated zdata ``interp_data`` is returned from the function.
 ### Make plots
-+ ``hPlot = obj.plotData1D(parameter_name, attribute_name, scalar_operation, ax)``
-Make a 1D plot with ``parameter_name`` against ``attribute_name``. Optionally, you can specify the scalar operation ("real" (default), "imag", "abs" or "angle") ``scalar_operation`` on the attribute data. You can also specify the axis ``ax`` to be plot on. The handle to the line object is returned as ``hPlot``.
-+ ``[hSurf, hClb] = obj.plotData2D(parameter1_name, parameter2_name, attribute_name, scalar_operation, ax)``
-Make a 2D plot with ``parameter1_name`` (x) and ``parameter2_name`` (y) against ``attribute_name``. Similarly, you can optionally provide ``scalar_operation`` and ``ax``. The handles to the surface object and the colorbar object are returned as ``hSurf`` and ``hClb``, respectively.
++ ``hPlot = obj.plotData1D(parameter_name, attribute_name, [**option=value])``
+Make a 1D plot with ``parameter_name`` against ``attribute_name``. The handle to the line object is returned as ``hPlot``. Can specify options in the form of option-value pairs.
+"ScalarOperation": default is "real". Specify one of "real", "imag", "abs" or "angle".
+"Ax": default is the current axes. You can specify the axis to plot on.
+"XFactor": scaling factor for x axis data.
+"YFactor": scaling factor for y axis data.
+"LineSpec": "LineSpec" string for plot() function. See MATLAB documentation.
+Other name-value pairs accepted by plot() function are also accepted in this function.
++ ``[hSurf, hClb] = obj.plotData2D(parameter1_name, parameter2_name, attribute_name, [**option=value])``
+Make a 2D plot with ``parameter1_name`` (x) and ``parameter2_name`` (y) against ``attribute_name``. The handles to the surface object and the colorbar object are returned as ``hSurf`` and ``hClb``, respectively. Can specify options in the form of option-value pairs.
+"ScalarOperation", "Ax", "XFactor" and "YFactor" are similar in plotData1D().
+"Mode": default is "none". If "spatial", X and Y axis values are treated as lengths with unit "nm", and are scaled by a factor of 10^9. Default x and y axis labels will also include "(nm)" at the end.
+Other name-value pairs accepted by surface() function are also accepted in this function.
 The 2D plot produced here is a surface plot in 2D view. However, ``hSurf.XData``, ``hSurf.YData`` and ``hSurf.ZData`` do not equal to ``xdata``, ``ydata`` or ``zdata`` from ``getPlot2DData()``[^1].
 ### Dataset manipulation
 + ``new_obj = obj.removeDimensions([*parameter_name]);``
