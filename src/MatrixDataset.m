@@ -126,7 +126,7 @@ classdef MatrixDataset < LumericalDataset
             if size(para_value_list, 1) >= size(obj.parameters, 1)
                 error("Should have at least one parameter left after removal!");
             end
-                
+
             new_obj = obj.copy();
 
             % Adjust attributes
@@ -380,7 +380,7 @@ classdef MatrixDataset < LumericalDataset
     end
 
     methods (Access = protected)
-        function setParameterSlice(obj, mode_flag, varargin)
+        function iSetParameterSlice(obj, mode_flag, varargin)
             % Set slice position of one or more parameters. Name-value
             % pairs consist of parameter name and index or value.
             % If mode_flag is "index", than accept indexes.
@@ -405,6 +405,29 @@ classdef MatrixDataset < LumericalDataset
             % resolve to the same index. Otherwise, report an error.
             parsed_index_list = obj.iAnalyzeParsedParameters(p, mode_flag);
             obj.iUpdateParametersSliceIndex(parsed_index_list);
+        end
+
+        function iCheckAllParametersEquivalent(obj, other_obj, absTol, relTol)
+            % Check parameters (excluding x, y and z) in both MatrixDataset
+            % objects equivalent, which includes parameter names and
+            % parameter values (within certain tolerance level)
+            if ~isequal(obj.parameters(:, 1), other_obj.parameters(:, 1))
+                ME = MException('', "Parameter lists in both datasets are not equivalent!");
+                ME.throwAsCaller();
+            end
+            for iP = 1:obj.num_parameters
+                if nargin == 2
+                    isequivalent = LumericalDataset.isequalWithinTol(obj.parameters{iP, 2}, other_obj.parameters{iP, 2});
+                elseif nargin == 3
+                    isequivalent = LumericalDataset.isequalWithinTol(obj.parameters{iP, 2}, other_obj.parameters{iP, 2}, absTol);
+                elseif nargin == 4
+                    isequivalent = LumericalDataset.isequalWithinTol(obj.parameters{iP, 2}, other_obj.parameters{iP, 2}, absTol, relTol);
+                end
+                if ~isequivalent
+                    ME = MException('', "Parameter values in both datasets are not equal within the tolerance limit!");
+                    ME.throwAsCaller();
+                end
+            end
         end
     end
 end

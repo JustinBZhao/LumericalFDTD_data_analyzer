@@ -289,7 +289,7 @@ classdef RectilinearDataset < LumericalDataset
     end
 
     methods (Access = protected)
-        function setParameterSlice(obj, mode_flag, varargin)
+        function iSetParameterSlice(obj, mode_flag, varargin)
             % Rectilinear version of set slice index that also accepts 'x',
             % 'y' and 'z' as parameters
 
@@ -313,6 +313,45 @@ classdef RectilinearDataset < LumericalDataset
             % resolve to the same index. Otherwise, report an error.
             parsed_index_list = obj.iAnalyzeParsedParameters(p, mode_flag);
             obj.iUpdateParametersSliceIndex(parsed_index_list);
+        end
+
+        function iCheckAllParametersEquivalent(obj, other_obj, absTol, relTol)
+            % Check parameters (excluding x, y and z) in both Rectilinear
+            % objects equivalent, which includes parameter names and
+            % parameter values (within certain tolerance level)
+            if ~isequal(obj.parameters(:, 1), other_obj.parameters(:, 1))
+                ME = MException('', "Parameter lists in both datasets are not equivalent!");
+                ME.throwAsCaller();
+            end
+            for iP = 1:obj.num_parameters
+                if nargin == 2
+                    isequivalent = LumericalDataset.isequalWithinTol(obj.parameters{iP, 2}, other_obj.parameters{iP, 2});
+                elseif nargin == 3
+                    isequivalent = LumericalDataset.isequalWithinTol(obj.parameters{iP, 2}, other_obj.parameters{iP, 2}, absTol);
+                elseif nargin == 4
+                    isequivalent = LumericalDataset.isequalWithinTol(obj.parameters{iP, 2}, other_obj.parameters{iP, 2}, absTol, relTol);
+                end
+                if ~isequivalent
+                    ME = MException('', "Parameter values in both datasets are not equal within the tolerance limit!");
+                    ME.throwAsCaller();
+                end
+            end
+
+            % Also check the values for positional vectors (x, y and z) in
+            % both objects equivalent (within certain tolerance level)
+            for axis = ["x", "y", "z"]
+                if nargin == 2
+                    isequivalent = LumericalDataset.isequalWithinTol(obj.(axis), other_obj.(axis));
+                elseif nargin == 3
+                    isequivalent = LumericalDataset.isequalWithinTol(obj.(axis), other_obj.(axis), absTol);
+                elseif nargin == 4
+                    isequivalent = LumericalDataset.isequalWithinTol(obj.(axis), other_obj.(axis), absTol, relTol);
+                end
+                if ~isequivalent
+                    ME = MException('', "'" + axis + "' parameter data in both datasets are not equal!");
+                    ME.throwAsCaller();
+                end
+            end
         end
     end
 end

@@ -134,29 +134,10 @@ classdef (Abstract) LumericalDataset < matlab.mixin.Copyable
                 end
                 obj_array = num2cell(obj_array);
             end
-            %%%%%% Check everything the same
-            % Check all existing parameter names the same
-            % Check all parameters the same value within an error limit
+            % Check all parameters (including x, y and z if applicable) are
+            % equivalent within the tolerance limit
             for ii = 1:array_size
-                if ~isequal(obj_array{ii}.parameters(:, 1), obj_array{1}.parameters(:, 1))
-                    error("Parameter names not the same!");
-                end
-                if isrecti
-                    if ~LumericalDataset.isequalWithinTol(obj_array{ii}.x, obj_array{1}.x)
-                        error("x not equal!");
-                    end
-                    if ~LumericalDataset.isequalWithinTol(obj_array{ii}.y, obj_array{1}.y)
-                        error("y not equal!");
-                    end
-                    if ~LumericalDataset.isequalWithinTol(obj_array{ii}.z, obj_array{1}.z)
-                        error("z not equal!");
-                    end
-                end
-                for iP = 1:obj_array{1}.num_parameters
-                    if ~LumericalDataset.isequalWithinTol(obj_array{ii}.parameters{iP, 2}, obj_array{1}.parameters{iP, 2})
-                        error("parameter not equal!");
-                    end
-                end
+                iCheckAllParametersEquivalent(obj_array{ii}, obj_array{1});
             end
             % Check parameter slice indexes, only give off warning if not
             % matching
@@ -294,9 +275,9 @@ classdef (Abstract) LumericalDataset < matlab.mixin.Copyable
         function setParameterSliceIndex(obj, varargin) % non-virtual
             % Set parameters (including x, y, z for rectilinear datasets)
             % slice position based on input indexes. See function
-            % 'setParameterSlice'.
+            % 'iSetParameterSlice'.
             try
-                obj.setParameterSlice("index", varargin{:});
+                obj.iSetParameterSlice("index", varargin{:});
             catch ME
                 ME.throw();
             end
@@ -305,9 +286,9 @@ classdef (Abstract) LumericalDataset < matlab.mixin.Copyable
         function setParameterSliceValue(obj, varargin) % non-virtual
             % Set parameters (including x, y, z for rectilinear dataset)
             % slice position based on input values. See function
-            % 'setParameterSlice'.
+            % 'iSetParameterSlice'.
             try
-                obj.setParameterSlice("value", varargin{:});
+                obj.iSetParameterSlice("value", varargin{:});
             catch ME
                 ME.throw();
             end
@@ -520,8 +501,11 @@ classdef (Abstract) LumericalDataset < matlab.mixin.Copyable
         new_obj = mergeDataset(obj, other_obj, varargin);
     end
 
+    % Helper functions that have different implementations for different
+    % derived classes
     methods (Abstract, Access = protected)
-        setParameterSlice(obj, mode_flag, varargin);
+        iSetParameterSlice(obj, mode_flag, varargin);
+        iCheckAllParametersEquivalent(obj, other_obj, absTol, relTol);
     end
 
     methods (Access = protected)
