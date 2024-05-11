@@ -459,8 +459,13 @@ classdef (Abstract) LumericalDataset < matlab.mixin.Copyable
             hSurf = surface(ax, xdata, ydata, zdata, 'EdgeColor', 'none', surfpropscell{:});
             xlim(ax, [min(xdata), max(xdata)]);
             ylim(ax, [min(ydata), max(ydata)]);
-            xlabel(ax, parameter1_name + " (nm)", 'Interpreter', 'none');
-            ylabel(ax, parameter2_name + " (nm)", 'Interpreter', 'none');
+            if strcmp(optargs.Mode, "spatial")
+                xlabel(ax, parameter1_name + " (nm)", 'Interpreter', 'none');
+                ylabel(ax, parameter2_name + " (nm)", 'Interpreter', 'none');
+            elseif strcmp(optargs.Mode, "none")
+                xlabel(ax, parameter1_name + " (nm)", 'Interpreter', 'none');
+                ylabel(ax, parameter2_name + " (nm)", 'Interpreter', 'none');
+            end
             colormap(ax, 'jet');
             hClb = colorbar;
             set(ax, 'Layer', 'top');
@@ -544,9 +549,9 @@ classdef (Abstract) LumericalDataset < matlab.mixin.Copyable
                     interdep_set_data(j) = p.Results.(obj.parameters{i, 1}(j));
                     if ~isnan(interdep_set_data(j)) && strcmp(parse_mode, "value")
                         try % find the index corresponding to the value
-                        interdep_indexes(j) = LumericalDataset.findIndexFromValueWithinTol( ...
-                            interdep_set_data(j), obj.parameters{i, 2}(:, j), ...
-                            "Cannot find the value specified for '" + obj.parameters{i, 1}(j) + "'!");
+                            interdep_indexes(j) = LumericalDataset.findIndexFromValueWithinTol( ...
+                                interdep_set_data(j), obj.parameters{i, 2}(:, j), ...
+                                "Cannot find the value specified for '" + obj.parameters{i, 1}(j) + "'!");
                         catch ME
                             ME.throwAsCaller();
                         end
@@ -557,7 +562,7 @@ classdef (Abstract) LumericalDataset < matlab.mixin.Copyable
                 end
                 % If multiple interdependent parameters are present, they
                 % must resolve to the same index
-                unique_index = unique(interdep_indexes(~isnan(interdep_indexes))); 
+                unique_index = unique(interdep_indexes(~isnan(interdep_indexes)));
                 if numel(unique_index) > 1 % different indexes?
                     ME = MException('', "Multiple interdependent parameters in the same set were selected, " + ...
                         "but they do not resolve to the same index!");
