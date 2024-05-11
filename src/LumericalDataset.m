@@ -339,26 +339,29 @@ classdef (Abstract) LumericalDataset < matlab.mixin.Copyable
             end
         end
 
-        function hPlot = plotData1D(obj, parameter_name, attribute_name, scalar_operation, ax)  % non-virtual
+        function hPlot = plotData1D(obj, parameter_name, attribute_name, optargs)  % non-virtual
             % This function makes a 1D plot based on the parameter name and
             % the attribute name.
             arguments
                 obj
                 parameter_name
                 attribute_name
-                scalar_operation (1, 1) string {mustBeMember(scalar_operation, {'real', 'imag', 'abs', 'angle'})} = 'real'
-                ax = gca()
+                optargs.ScalarOperation {mustBeMember(optargs.ScalarOperation, ["real", "imag", "abs", "angle"])} = "real"
+                optargs.Ax = gca()
+                optargs.XFactor (1, 1) {mustBeReal, mustBeNonNan} = 1
+                optargs.YFactor (1, 1) {mustBeReal, mustBeNonNan} = 1
             end
 
             % If 'ax' is a valid axes handle, plot on that axes object
+            ax = optargs.Ax;
             if  ~(isscalar(ax) && isgraphics(ax, 'axes')) % valid axes handle
-                error("'ax' argument must be a valid axes handle!");
+                error("'Ax' optional argument must be a valid axes handle!");
             end
 
             % Calls the respective polymorphic function for each object
             [xdata, ydata] = obj.getPlot1DData(parameter_name, attribute_name);
 
-            ydata = applyScalarOperation(ydata, scalar_operation);
+            ydata = applyScalarOperation(ydata, optargs.ScalarOperation);
 
             if any(isnan(xdata)) || any(isinf(xdata)) % xdata has NaN or Inf?
                 error("Parameter:DataHasInvalidElement", ...
@@ -370,12 +373,12 @@ classdef (Abstract) LumericalDataset < matlab.mixin.Copyable
                     "Attribute data contains invalid (NaN or Inf) elements! Unable to make the plot.");
             end
 
-            hPlot = plot(ax, xdata, ydata);
+            hPlot = plot(ax, xdata * optargs.XFactor, ydata * optargs.YFactor);
             xlabel(ax, parameter_name, 'Interpreter', 'none');
             ylabel(ax, attribute_name, 'Interpreter', 'none');
         end
 
-        function [hSurf, hClb] = plotData2D(obj, parameter1_name, parameter2_name, attribute_name, scalar_operation, ax)  % non-virtual
+        function [hSurf, hClb] = plotData2D(obj, parameter1_name, parameter2_name, attribute_name, optargs)  % non-virtual
             % This function makes a 2D plot based on the parameter names
             % and the attribute name.
 
@@ -384,23 +387,27 @@ classdef (Abstract) LumericalDataset < matlab.mixin.Copyable
                 parameter1_name
                 parameter2_name
                 attribute_name
-                scalar_operation (1, 1) string {mustBeMember(scalar_operation, {'real', 'imag', 'abs', 'angle'})} = 'real'
-                ax = gca()
+                optargs.ScalarOperation {mustBeMember(optargs.ScalarOperation, ["real", "imag", "abs", "angle"])} = "real"
+                optargs.Ax = gca()
+                optargs.XFactor (1, 1) {mustBeReal, mustBeNonNan} = 1
+                optargs.YFactor (1, 1) {mustBeReal, mustBeNonNan} = 1
+                optargs.Mode {mustBeMember(optargs.Mode, ["none", "spatial"])} = "none"
             end
 
             % If 'ax' is a valid axes handle, plot on that axes object
+            ax = optargs.Ax;
             if ~(isscalar(ax) && isgraphics(ax, 'axes')) % valid axes handle
-                error("'ax' argument must be a valid axes handle!");
+                error("'Ax' optional argument must be a valid axes handle!");
             end
 
             % Calls the respective polymorphic function for each object
             [xdata, ydata, zdata] = obj.getPlot2DData(parameter1_name, parameter2_name, attribute_name);
 
-            zdata = applyScalarOperation(zdata, scalar_operation);
+            zdata = applyScalarOperation(zdata, optargs.ScalarOperation);
 
             % Throw an error is xdata or ydata (parameters) is singleton
             % dimension
-            if length(xdata) == 1 || length(ydata) == 1
+            if isscalar(xdata) || isscalar(ydata)
                 error("Cannot make 2D plot with singleton dimension in xdata or ydata!");
             end
 
@@ -423,6 +430,14 @@ classdef (Abstract) LumericalDataset < matlab.mixin.Copyable
                     "Attribute data contains invalid (NaN or Inf) elements! Unable to make the plot.");
             end
 
+            % Scale data
+            if strcmp(optargs.Mode, "spatial")
+                xdata = xdata * 1e9;
+                ydata = ydata * 1e9;
+            end
+            xdata = xdata * optargs.XFactor;
+            ydata = ydata * optargs.YFactor;
+
             % Adjust data to make true "2D plot"
             xdata = ([xdata(1); xdata(:)] + [xdata(:); xdata(end)])/2;
             ydata = ([ydata(1); ydata(:)] + [ydata(:); ydata(end)])/2;
@@ -430,9 +445,9 @@ classdef (Abstract) LumericalDataset < matlab.mixin.Copyable
             zdata_new(1:end-1, 1:end-1) = zdata;
             zdata = zdata_new;
 
-            hSurf = surface(ax, xdata*1e9, ydata*1e9, zdata, 'EdgeColor', 'none');
-            xlim(ax, [min(xdata*1e9), max(xdata*1e9)]);
-            ylim(ax, [min(ydata*1e9), max(ydata*1e9)]);
+            hSurf = surface(ax, xdata, ydata, zdata, 'EdgeColor', 'none');
+            xlim(ax, [min(xdata), max(xdata)]);
+            ylim(ax, [min(ydata), max(ydata)]);
             xlabel(ax, parameter1_name + " (nm)", 'Interpreter', 'none');
             ylabel(ax, parameter2_name + " (nm)", 'Interpreter', 'none');
             colormap(ax, 'jet');
