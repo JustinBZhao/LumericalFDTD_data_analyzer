@@ -339,7 +339,7 @@ classdef (Abstract) LumericalDataset < matlab.mixin.Copyable
             end
         end
 
-        function hPlot = plotData1D(obj, parameter_name, attribute_name, optargs)  % non-virtual
+        function hPlot = plotData1D(obj, parameter_name, attribute_name, optargs, plotprops)  % non-virtual
             % This function makes a 1D plot based on the parameter name and
             % the attribute name.
             arguments
@@ -350,7 +350,12 @@ classdef (Abstract) LumericalDataset < matlab.mixin.Copyable
                 optargs.Ax = gca()
                 optargs.XFactor (1, 1) {mustBeReal, mustBeNonNan} = 1
                 optargs.YFactor (1, 1) {mustBeReal, mustBeNonNan} = 1
+                optargs.LineSpec (1, 1) string = ""
+                plotprops.?matlab.graphics.chart.primitive.Line % plot name-value pairs
             end
+
+            % Convert received plot name-value pairs to a cell array
+            plotpropscell = namedargs2cell(plotprops);
 
             % If 'ax' is a valid axes handle, plot on that axes object
             ax = optargs.Ax;
@@ -373,12 +378,14 @@ classdef (Abstract) LumericalDataset < matlab.mixin.Copyable
                     "Attribute data contains invalid (NaN or Inf) elements! Unable to make the plot.");
             end
 
-            hPlot = plot(ax, xdata * optargs.XFactor, ydata * optargs.YFactor);
+            hPlot = plot(ax, xdata * optargs.XFactor, ydata * optargs.YFactor, ...
+                optargs.LineSpec, plotpropscell{:});
             xlabel(ax, parameter_name, 'Interpreter', 'none');
             ylabel(ax, attribute_name, 'Interpreter', 'none');
         end
 
-        function [hSurf, hClb] = plotData2D(obj, parameter1_name, parameter2_name, attribute_name, optargs)  % non-virtual
+        function [hSurf, hClb] = plotData2D(obj, parameter1_name, parameter2_name, attribute_name, ...
+                optargs, surfprops)  % non-virtual
             % This function makes a 2D plot based on the parameter names
             % and the attribute name.
 
@@ -392,7 +399,11 @@ classdef (Abstract) LumericalDataset < matlab.mixin.Copyable
                 optargs.XFactor (1, 1) {mustBeReal, mustBeNonNan} = 1
                 optargs.YFactor (1, 1) {mustBeReal, mustBeNonNan} = 1
                 optargs.Mode {mustBeMember(optargs.Mode, ["none", "spatial"])} = "none"
+                surfprops.?matlab.graphics.primitive.Surface % surface name-value pairs
             end
+
+            % Convert received surface name-value pairs to a cell array
+            surfpropscell = namedargs2cell(surfprops);
 
             % If 'ax' is a valid axes handle, plot on that axes object
             ax = optargs.Ax;
@@ -445,7 +456,7 @@ classdef (Abstract) LumericalDataset < matlab.mixin.Copyable
             zdata_new(1:end-1, 1:end-1) = zdata;
             zdata = zdata_new;
 
-            hSurf = surface(ax, xdata, ydata, zdata, 'EdgeColor', 'none');
+            hSurf = surface(ax, xdata, ydata, zdata, 'EdgeColor', 'none', surfpropscell{:});
             xlim(ax, [min(xdata), max(xdata)]);
             ylim(ax, [min(ydata), max(ydata)]);
             xlabel(ax, parameter1_name + " (nm)", 'Interpreter', 'none');
