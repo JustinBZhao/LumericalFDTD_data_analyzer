@@ -490,6 +490,17 @@ classdef (Abstract) LumericalDataset < matlab.mixin.Copyable
                 interp_data = interp2(xdata, ydata, zdata, Xq, Yq, method, extrapval);
             end
         end
+
+        function new_obj = uminus(obj) % non-virtual
+            % Unary minus operator, essentially flipping sign of all
+            % attributes data
+            new_obj = obj.copy();
+            attributes_names = fieldnames(obj.attributes);
+            for iA = 1:length(attributes_names)
+                name = attributes_names{iA};
+                new_obj.attributes.(name) = -new_obj.attributes.(name);
+            end
+        end
     end
 
     methods (Abstract)

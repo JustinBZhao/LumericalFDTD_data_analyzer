@@ -132,6 +132,9 @@ Merge 2 datasets (``obj`` and ``other_obj``) together. Both datasets must have t
 "Sort": default is ``false``. If ``true``, the merge parameter data will also be sorted, along with the corresponding attributes data.
 "Tolerance": default is [0, 0]. Specify as a two-element non-negative numeric vector in the form of [AbsoluteTolerance, RelativeTolerance]. The tolerance level is satisfied when either absolute or relative tolerance is satisfied.
 **Note**: this function for rectilinear datasets is not yet implemented.
+### Arithmetic operations
++ ``new_obj = -obj`` or ``new_obj = obj.uminus()``
+Unary minus operator, which multiplies all attributes data by (-1).
 
 [^1]: This is because the surface plot sets the color of the cell edges, not the cell face area. Without additional treatment, the last row and last column of the attribute data will not be displayed in the surface plot.
 [^2]: This is because rectilinear datasets require x, y and z positional vectors to be present. Even after they are removed, they will still show up in ``showInformation()`` outputs.
