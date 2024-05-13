@@ -377,6 +377,13 @@ classdef MatrixDataset < LumericalDataset
                 end
             end
         end
+
+        function new_obj = plus(obj, other_obj)
+            if class(other_obj) ~= "MatrixDataset"
+                error("This operation should involve two matrix datasets!");
+            end
+            new_obj = plus@LumericalDataset(obj, other_obj);
+        end
     end
 
     methods (Access = protected)

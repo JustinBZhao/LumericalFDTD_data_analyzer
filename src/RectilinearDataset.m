@@ -220,6 +220,15 @@ classdef RectilinearDataset < LumericalDataset
         function new_obj = mergeDataset(obj, other_obj, varargin)
             error("This method is not implemented.");
         end
+
+        function new_obj = plus(obj, other_obj)
+            if class(other_obj) ~= "RectilinearDataset"
+                error("This operation should involve two rectilinear datasets!");
+            end
+            new_obj = plus@LumericalDataset(obj, other_obj);
+            % Reset axes indexes to 1
+            new_obj.axes_indexes(:) = 1; % reset to 1
+        end
     end
 
     methods (Access = private)

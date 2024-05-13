@@ -501,6 +501,40 @@ classdef (Abstract) LumericalDataset < matlab.mixin.Copyable
                 new_obj.attributes.(name) = -new_obj.attributes.(name);
             end
         end
+
+        function new_obj = plus(obj, other_obj)
+            new_obj = obj.copy();
+            % Check parameters exactly the same
+            obj.iCheckAllParametersEquivalent(other_obj);
+            % Check two datasets have the same sets of attributes
+            if ~isequal(sort(fieldnames(obj.attributes_component)), ...
+                    sort(fieldnames(other_obj.attributes_component)))
+                error("Attribute field names not the same!");
+            end
+            % Apply operations on attributes, while checking type (scalar
+            % vs vector)
+            field_names = fieldnames(obj.attributes);
+            for attribute_name = string(field_names).' % loop through field names
+                % Scalar vs. vector
+                if isnan(obj.attributes_component.(attribute_name)) ~= ...
+                        isnan(other_obj.attributes_component.(attribute_name))
+                    error("This attribute is of different type!");
+                end
+                new_obj.attributes.(attribute_name) = ...
+                    obj.attributes.(attribute_name) + other_obj.attributes.(attribute_name);
+                % Reset attributes_component to "magnitude" for vector
+                % attributes
+                if ~isnan(obj.attributes_component.(attribute_name))
+                    new_obj.attributes_component.(attribute_name) = 0;
+                end
+            end
+            % Reset all parameters indexes to 1
+            new_obj.parameters_indexes(:) = 1;
+        end
+
+        function new_obj = minus(obj, other_obj) % non-virtual
+            new_obj = obj + (-other_obj);
+        end
     end
 
     methods (Abstract)
