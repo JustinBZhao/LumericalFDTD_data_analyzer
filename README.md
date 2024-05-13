@@ -133,21 +133,22 @@ Merge 2 datasets (``obj`` and ``other_obj``) together. Both datasets must have t
 "Tolerance": default is [0, 0]. Specify as a two-element non-negative numeric vector in the form of [AbsoluteTolerance, RelativeTolerance]. The tolerance level is satisfied when either absolute or relative tolerance is satisfied.
 **Note**: this function for rectilinear datasets is not yet implemented.
 ### Arithmetic operations
+You can use arithmetic operators ``+``, ``-``, ``*`` (or ``.*``) and ``/`` (or ``./``) with datasets. These operators will perform the corresponding operation on data in all attributes, in a element-wise manner.
 + ``new_obj = -obj`` or ``new_obj = obj.uminus()``
-Unary minus operator, which multiplies all attributes data by (-1).
+Unary minus operator.
 + ``new_obj = obj1 + obj2`` or ``new_obj = obj1.plus(obj2)``
-Binary plus operator for adding two datasets (of the same type, matrix or rectilinear dataset) together. ``obj1`` and ``obj2`` must have identical parameters set (within a tolerance limit). The attributes set must also be identical except the data values. Attributes data from two datasets will be added element-wise to form the new dataset.
+Binary plus operator for adding two datasets (of the same type, matrix or rectilinear dataset) together. ``obj1`` and ``obj2`` must have identical parameters set (within a tolerance limit). The attributes set must also be identical except the data values.
 Note that the parameter slice indexes in ``new_obj`` will be reset to 1, and Attributes plot component will be reset to "magnitude".
 + ``new_obj = obj1 - obj2`` or ``new_obj = obj1.minus(obj2)``
 Binary minus operator for adding two datasets. Please refer to the binary plus operator.
 + ``new_obj = obj + num`` or ``new_obj = num + obj``
-This is the version of the binary plus operator that adds a number ``num`` to a dataset ``obj``. ``num`` will be added to each element in the attributes data.
+This is the version of the binary plus operator that involves a dataset ``obj`` and a number ``num``.
 + ``new_obj = obj - num``
-This is the version of the binary minus operator that subtracts a number ``num`` from a dataset ``obj``. Similarly, ``num`` will be subtracted from each element in the attributes data. If you use ``new_obj = num - obj``, it is equivalent to ``new_obj = (-obj) + num``.
+This is the version of the binary minus operator that involves a dataset ``obj`` and a number ``num``. If you use ``new_obj = num - obj``, it is equivalent to ``new_obj = (-obj) + num``.
 + ``new_obj = obj * num`` or ``new_obj = num * obj``
-This is the binary multiplication operator. The dataset ``obj`` must be multiplied by a number ``num``. In this case, the element-wise multiplication operator (``.*``) is equivalent to the matrix multiplication operator (``*``).
+This is the binary multiplication operator that involves a dataset ``obj`` and a number ``num``. You cannot multiply two datasets together. In this case, the element-wise multiplication operator (``.*``) is equivalent to the matrix multiplication operator (``*``).
 + ``new_obj = obj / num``
-This is the binary division operator. The dataset ``obj`` must be divided by a number ``num``. In this case, the element-wise division operator (``./``) is equivalent to the matrix division operator (``/``).
+This is the binary division operator that involves a dataset ``obj`` and a number ``num``. You cannot take one dataset divided by another dataset. In this case, the element-wise division operator (``./``) is equivalent to the matrix division operator (``/``).
 
 [^1]: This is because the surface plot sets the color of the cell edges, not the cell face area. Without additional treatment, the last row and last column of the attribute data will not be displayed in the surface plot.
 [^2]: This is because rectilinear datasets require x, y and z positional vectors to be present. Even after they are removed, they will still show up in ``showInformation()`` outputs.
