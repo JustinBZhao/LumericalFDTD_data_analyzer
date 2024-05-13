@@ -144,6 +144,10 @@ Binary minus operator for adding two datasets. Please refer to the binary plus o
 This is the version of the binary plus operator that adds a number ``num`` to a dataset ``obj``. ``num`` will be added to each element in the attributes data.
 + ``new_obj = obj - num``
 This is the version of the binary minus operator that subtracts a number ``num`` from a dataset ``obj``. Similarly, ``num`` will be subtracted from each element in the attributes data. If you use ``new_obj = num - obj``, it is equivalent to ``new_obj = (-obj) + num``.
++ ``new_obj = obj * num`` or ``new_obj = num * obj``
+This is the binary multiplication operator. The dataset ``obj`` must be multiplied by a number ``num``. In this case, the element-wise multiplication operator (``.*``) is equivalent to the matrix multiplication operator (``*``).
++ ``new_obj = obj / num``
+This is the binary division operator. The dataset ``obj`` must be divided by a number ``num``. In this case, the element-wise division operator (``./``) is equivalent to the matrix division operator (``/``).
 
 [^1]: This is because the surface plot sets the color of the cell edges, not the cell face area. Without additional treatment, the last row and last column of the attribute data will not be displayed in the surface plot.
 [^2]: This is because rectilinear datasets require x, y and z positional vectors to be present. Even after they are removed, they will still show up in ``showInformation()`` outputs.

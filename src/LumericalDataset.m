@@ -539,6 +539,52 @@ classdef (Abstract) LumericalDataset < matlab.mixin.Copyable
         function new_obj = minus(obj, other_obj) % non-virtual
             new_obj = obj + (-other_obj);
         end
+
+        function new_obj = times(obj, other_obj) % non-virtual
+            % Dataset with a number
+            if isa(obj, "MatrixDataset") || isa(obj, "RectilinearDataset") ...
+                    && isnumeric(other_obj) && isscalar(other_obj)
+                % dataset + num
+                new_obj = obj.copy();
+                num = other_obj;
+            elseif isa(other_obj, "MatrixDataset") || isa(other_obj, "RectilinearDataset") ...
+                    && isnumeric(obj) && isscalar(obj)
+                % num + dataset
+                new_obj = other_obj.copy();
+                num = obj;
+            else % Wrong inputs
+                error("You can only multiply a dataset with a number!");
+            end
+            if isnan(num) || isinf(num) % Warning on NaN or Inf
+                warning("The number is NaN or Inf!");
+            end
+            new_obj.operateOnAllAttributesData(@(dataset) dataset .* num);
+        end
+
+        function new_obj = mtimes(obj, other_obj) % non-virtual
+            new_obj = times(obj, other_obj);
+        end
+
+        function new_obj = rdivide(obj, num) % non-virtual
+            % For division, must be dataset / num
+            if isa(obj, "MatrixDataset") || isa(obj, "RectilinearDataset") ...
+                    && isnumeric(other_obj) && isscalar(other_obj)
+                new_obj = obj.copy();
+            else % Wrong inputs
+                error("You can only divide a dataset by a non-zero number!");
+            end
+            if isnan(num) || isinf(num) % Warning on NaN or Inf
+                warning("The divisor is NaN or Inf!");
+            end
+            if num == 0
+                warning("The divisor should not be zero!");
+            end
+            new_obj.operateOnAllAttributesData(@(dataset) dataset ./ num);
+        end
+
+        function new_obj = mrdivide(obj, other_obj) % non-virtual
+            new_obj = rdivide(obj, other_obj);
+        end
     end
 
     methods (Abstract)
