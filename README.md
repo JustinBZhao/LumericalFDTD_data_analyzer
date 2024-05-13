@@ -135,6 +135,15 @@ Merge 2 datasets (``obj`` and ``other_obj``) together. Both datasets must have t
 ### Arithmetic operations
 + ``new_obj = -obj`` or ``new_obj = obj.uminus()``
 Unary minus operator, which multiplies all attributes data by (-1).
++ ``new_obj = obj1 + obj2`` or ``new_obj = obj1.plus(obj2)``
+Binary plus operator for adding two datasets (of the same type, matrix or rectilinear dataset) together. ``obj1`` and ``obj2`` must have identical parameters set (within a tolerance limit). The attributes set must also be identical except the data values. Attributes data from two datasets will be added element-wise to form the new dataset.
+Note that the parameter slice indexes in ``new_obj`` will be reset to 1, and Attributes plot component will be reset to "magnitude".
++ ``new_obj = obj1 - obj2`` or ``new_obj = obj1.minus(obj2)``
+Binary minus operator for adding two datasets. Please refer to the binary plus operator.
++ ``new_obj = obj + num`` or ``new_obj = num + obj``
+This is the version of the binary plus operator that adds a number ``num`` to a dataset ``obj``. ``num`` will be added to each element in the attributes data.
++ ``new_obj = obj - num``
+This is the version of the binary minus operator that subtracts a number ``num`` from a dataset ``obj``. Similarly, ``num`` will be subtracted from each element in the attributes data. If you use ``new_obj = num - obj``, it is equivalent to ``new_obj = (-obj) + num``.
 
 [^1]: This is because the surface plot sets the color of the cell edges, not the cell face area. Without additional treatment, the last row and last column of the attribute data will not be displayed in the surface plot.
 [^2]: This is because rectilinear datasets require x, y and z positional vectors to be present. Even after they are removed, they will still show up in ``showInformation()`` outputs.

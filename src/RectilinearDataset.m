@@ -222,12 +222,29 @@ classdef RectilinearDataset < LumericalDataset
         end
 
         function new_obj = plus(obj, other_obj)
-            if class(other_obj) ~= "RectilinearDataset"
-                error("This operation should involve two rectilinear datasets!");
+            % RectilinearDataset + RectilinearDataset
+            if isa(obj, "RectilinearDataset") && isa(other_obj, "RectilinearDataset")
+                new_obj = plus@LumericalDataset(obj, other_obj);
+                % Reset axes indexes to 1
+                new_obj.axes_indexes(:) = 1; % reset to 1
+                return;
             end
-            new_obj = plus@LumericalDataset(obj, other_obj);
-            % Reset axes indexes to 1
-            new_obj.axes_indexes(:) = 1; % reset to 1
+            % Dataset with a number
+            if isa(obj, "RectilinearDataset") && isnumeric(other_obj) && isscalar(other_obj)
+                % RectilinearDataset + num
+                new_obj = obj.copy();
+                num = other_obj;
+            elseif isa(other_obj, "RectilinearDataset") && isnumeric(obj) && isscalar(obj)
+                % num + RectilinearDataset
+                new_obj = other_obj.copy();
+                num = obj;
+            else % Wrong inputs
+                error("You can only add a rectilinear dataset with another rectilinear dataset or a number!");
+            end
+            if isnan(num) || isinf(num) % Warning on NaN or Inf
+                warning("The number is NaN or Inf!");
+            end
+            new_obj.operateOnAllAttributesData(@(dataset) dataset + num);
         end
     end
 

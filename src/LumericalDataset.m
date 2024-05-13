@@ -503,6 +503,10 @@ classdef (Abstract) LumericalDataset < matlab.mixin.Copyable
         end
 
         function new_obj = plus(obj, other_obj)
+            % This "+" operator method in the base class provides a base
+            % implementation of adding two dataset objects together. Adding
+            % a number to the dataset is dealt with in the subclass
+            % implementations.
             new_obj = obj.copy();
             % Check parameters exactly the same
             obj.iCheckAllParametersEquivalent(other_obj);
@@ -699,6 +703,17 @@ classdef (Abstract) LumericalDataset < matlab.mixin.Copyable
                 LumericalDataset.validateFieldInStruct(obj.attributes, attribute_name, "This attribute '" + attribute_name + "' is not found!");
             catch ME
                 ME.throwAsCaller();
+            end
+        end
+
+        function operateOnAllAttributesData(obj, operation)
+            % Perform an operation on all attributes data in the dataset
+            % 'operation' is a function handle that takes a
+            % multi-dimensional matrix as input and returns the
+            % output matrix with the same size
+            field_names = fieldnames(obj.attributes);
+            for attribute_name = string(field_names).' % loop through field names
+                obj.attributes.(attribute_name) = operation(obj.attributes.(attribute_name));
             end
         end
     end

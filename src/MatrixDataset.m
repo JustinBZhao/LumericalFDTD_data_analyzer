@@ -379,10 +379,27 @@ classdef MatrixDataset < LumericalDataset
         end
 
         function new_obj = plus(obj, other_obj)
-            if class(other_obj) ~= "MatrixDataset"
-                error("This operation should involve two matrix datasets!");
+            % MatrixDataset + MatrixDataset
+            if isa(obj, "MatrixDataset") && isa(other_obj, "MatrixDataset")
+                new_obj = plus@LumericalDataset(obj, other_obj);
+                return;
             end
-            new_obj = plus@LumericalDataset(obj, other_obj);
+            % Dataset with a number
+            if isa(obj, "MatrixDataset") && isnumeric(other_obj) && isscalar(other_obj)
+                % MatrixDataset + num
+                new_obj = obj.copy();
+                num = other_obj;
+            elseif isa(other_obj, "MatrixDataset") && isnumeric(obj) && isscalar(obj)
+                % num + MatrixDataset
+                new_obj = other_obj.copy();
+                num = obj;
+            else % Wrong inputs
+                error("You can only add a matrix dataset with another matrix dataset or a number!");
+            end
+            if isnan(num) || isinf(num) % Warning on NaN or Inf
+                warning("The number is NaN or Inf!");
+            end
+            new_obj.operateOnAllAttributesData(@(dataset) dataset + num);
         end
     end
 
