@@ -104,9 +104,12 @@ Note that for 2D plots, the MATLAB convention is that ``size(zdata) = [length(yd
 + ``[x, y, z, data] = obj.getPlot3DData(parameter1_name, parameter2_name, parameter3_name, attribute_name)``
 Retrieve the data for 3D plot. ``x``, ``y`` and ``z`` correspond to 3 parameters, and ``data`` is the attribute after slicing off all other dimensions. Currently, MATLAB does not have a way to image "3D" data. Therefore, this function does not have the corresponding plotting function.
 Note that following MATLAB convention, ``size(data) = [length(y), length(x), length(z)]``.
-+ ``interp_data = obj.getInterpolatedPlot2DData(parameter1_name, parameter2_name, attribute_name, Xq, Yq, method, extrapval, options)``
-When retrieving the data for 2D plot, also perform an interpolation on to the new x (``Xq``) and new y (``Yq``). Optionally specify ``method``, ``extrapval`` and ``options``. Please see MATLAB document for ``interp2`` function for more details.
-Since an interpolation is performed from ``Xq`` and ``Yq``, only the interpolated zdata ``interp_data`` is returned from the function.
++ ``interp_data = obj.getInterpolatedPlot1DData(parameter_name, attribute_name, Xq, [method], [extrapval], [**option=value])``
+When retrieving the data for 1D plot, also perform an interpolation onto the new x (``Xq``). Optionally specify ``method``, ``extrapval`` for the ``interp1`` function. Please see MATLAB documentation of ``interp1`` function for more details. Since an interpolation is performed from ``Xq`` and ``Yq``, only the interpolated zdata ``interp_data`` is returned from the function. Can also specify options in the form of option-value pairs.
+"ScalarOperation": default is "real". Specify one of "real", "imag", "abs" or "angle".
++ ``interp_data = obj.getInterpolatedPlot2DData(parameter1_name, parameter2_name, attribute_name, Xq, Yq, [method], [extrapval], [**option=value])``
+When retrieving the data for 2D plot, also perform an interpolation onto the new x (``Xq``) and new y (``Yq``). Optionally specify ``method``, ``extrapval`` for the ``interp1`` function. Please see MATLAB documentation of ``interp2`` function for more details. Since an interpolation is performed from ``Xq`` and ``Yq``, only the interpolated zdata ``interp_data`` is returned from the function .Can also specify options in the form of option-value pairs.
+"ScalarOperation": default is "real". Specify one of "real", "imag", "abs" or "angle".
 ### Make plots
 + ``hPlot = obj.plotData1D(parameter_name, attribute_name, [**option=value])``
 Make a 1D plot with ``parameter_name`` against ``attribute_name``. The handle to the line object is returned as ``hPlot``. Can specify options in the form of option-value pairs.

@@ -453,6 +453,42 @@ classdef (Abstract) LumericalDataset < matlab.mixin.Copyable
             box(ax, 'on');
         end
 
+        function interp_data = getInterpolatedPlot1DData(obj, parameter_name, attribute_name, ...
+                Xq, method, extrapval, options)
+            % This function acquires 1D plot data and then interpolate
+            % Y(X) based on the query Xq points.
+            % Can specify 'method' and 'extrapval' as optional positional
+            % arguments as defined in 'interp1' function. Additionally, can
+            % specify 'ScalarOperation' as an optional name-value pair
+            % argument.
+            % The requirements for Xq is the same as 'interp1' function.
+            % They can take on different forms and do not need to be
+            % monotonic. See documentation.
+
+            arguments
+                obj
+                parameter_name
+                attribute_name
+                Xq
+                method = 'linear' % make sure this is the default for 'interp2'
+                extrapval = 'not specified'
+                options.ScalarOperation (1, 1) string {mustBeMember(options.ScalarOperation, {'real', 'imag', 'abs', 'angle'})} = 'real'
+            end
+
+            [xdata, ydata] = getPlot1DData(obj, parameter_name, attribute_name);
+            ydata = applyScalarOperation(ydata, options.ScalarOperation);
+
+            % Use EAFP to let the 'interp1' function check these arguments
+            % Do not check NaN, Inf or monotonicity of xdata. ydata can
+            % have NaN or Inf, interp2 still works
+            % Calls the respective polymorphic function for each object
+            if strcmp(extrapval, 'not specified') % user does not give value
+                interp_data = interp1(xdata, ydata, Xq, method);
+            else % user specified extrapval
+                interp_data = interp1(xdata, ydata, Xq, method, extrapval);
+            end
+        end
+
         function interp_data = getInterpolatedPlot2DData(obj, parameter1_name, parameter2_name, attribute_name, ...
                 Xq, Yq, method, extrapval, options)  % non-virtual
             % This function acquires 2D plot data and then interpolate
