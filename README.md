@@ -90,8 +90,8 @@ Retrieve the data corresponding to a specific attribute ``attribute_name``. Use 
 + ``obj.setParameterSliceIndex([**parameter_name=index])``
 Set the slice index of one or more parameters, including x, y, or z in rectilinear datasets. Input should be in the form of "parameter\_name-index" pair(s).
 The slice index for each parameter is 1 by default. The value persists throughout the lifetime of the dataset object.
-+ ``obj.setParameterSliceValue([**parameter_name=value])``
-Instead of the index, specify the value.
++ ``obj.setParameterSliceValue(["--closest" OR "-c"], [**parameter_name=value])``
+Instead of the index, specify the value. In this function, if you specify a flag ``"--closest"`` or ``"-c"`` before the parameter-value list, it will search for the closest value instead of the matching value.
 + ``obj.setAttributeComponent(attribute_name, component)``
 Set the component to plot for a vector attribute. ``component`` must be "x", "y", "z" or "magnitude". Cannot set this property for any scalar attribute (and will receive an error).
 The attribute component for each vector attribute is set to "magnitude" by default. In addition, this property is stored in the dataset and will persists throughout the lifetime of the dataset object.

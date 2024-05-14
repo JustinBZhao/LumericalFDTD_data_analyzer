@@ -254,7 +254,7 @@ classdef RectilinearDataset < LumericalDataset
                 p.addParameter('x', NaN, @(x) LumericalDataset.validateIndex(x, length(obj.x)));
                 p.addParameter('y', NaN, @(x) LumericalDataset.validateIndex(x, length(obj.y)));
                 p.addParameter('z', NaN, @(x) LumericalDataset.validateIndex(x, length(obj.z)));
-            elseif strcmp(check_mode, "value") % validate value
+            elseif strcmp(check_mode, "value") || strcmp(check_mode, "closest_value") % validate value
                 p.addParameter('x', NaN, @LumericalDataset.mustBeRealNumericScalar);
                 p.addParameter('y', NaN, @LumericalDataset.mustBeRealNumericScalar);
                 p.addParameter('z', NaN, @LumericalDataset.mustBeRealNumericScalar);
@@ -264,14 +264,16 @@ classdef RectilinearDataset < LumericalDataset
         function iAnalyzeAndSetParsedAxes(obj, p, parse_mode)
             axisnames = ["x", "y", "z"];
             for iA = 1:3
-                result = p.Results.(axisnames(iA));
-                if ~isnan(result)
+                value = p.Results.(axisnames(iA));
+                if ~isnan(value)
                     if strcmp(parse_mode, "value")
-                        result = LumericalDataset.findIndexFromValueWithinTol( ...
-                            result, obj.(axisnames(iA)), ...
+                        index = LumericalDataset.findIndexFromValueWithinTol( ...
+                            value, obj.(axisnames(iA)), ...
                             "Cannot find the value specified for '" + axisnames(iA) + "'!");
+                    elseif strcmp(parse_mode, "closest_value")
+                        [~, index] = min(abs(obj.(axisnames(iA)) - value));
                     end
-                    obj.axes_indexes(iA) = result;
+                    obj.axes_indexes(iA) = index;
                 end
             end
         end

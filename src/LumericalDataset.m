@@ -287,8 +287,15 @@ classdef (Abstract) LumericalDataset < matlab.mixin.Copyable
             % Set parameters (including x, y, z for rectilinear dataset)
             % slice position based on input values. See function
             % 'iSetParameterSlice'.
+            % Can pass a flag "--closest" or "-c" before the list to
+            % indicate searching for the closest match instead of an exact
+            % match.
             try
-                obj.iSetParameterSlice("value", varargin{:});
+                if strcmp(varargin{1}, "--closest") || strcmp(varargin{1}, "-c")
+                    obj.iSetParameterSlice("closest_value", varargin{2:end});
+                else
+                    obj.iSetParameterSlice("value", varargin{:});
+                end
             catch ME
                 ME.throw();
             end
@@ -647,7 +654,7 @@ classdef (Abstract) LumericalDataset < matlab.mixin.Copyable
                     if strcmp(check_mode, "index") % validate index
                         p.addParameter(para, NaN, ...
                             @(x) LumericalDataset.validateIndex(x, obj.parameters{i, 3}));
-                    elseif strcmp(check_mode, "value") % validate value
+                    elseif strcmp(check_mode, "value") || strcmp(check_mode, "closest_value") % validate value
                         p.addParameter(para, NaN, @LumericalDataset.mustBeRealNumericScalar);
                     end
                 end
@@ -670,6 +677,8 @@ classdef (Abstract) LumericalDataset < matlab.mixin.Copyable
                         catch ME
                             ME.throwAsCaller();
                         end
+                    elseif ~isnan(interdep_set_data(j)) && strcmp(parse_mode, "closest_value")
+                        [~, interdep_indexes(j)] = min(abs(obj.parameters{i, 2}(:, j) - interdep_set_data(j)));
                     end
                 end
                 if strcmp(parse_mode, "index")
