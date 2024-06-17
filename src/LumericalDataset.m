@@ -266,6 +266,12 @@ classdef (Abstract) LumericalDataset < matlab.mixin.Copyable
             end
         end
 
+        function disp(obj)
+            % Overload disp() and display() to print customized information
+            % instead, in showInformation()
+            obj.showInformation();
+        end
+
         function result = getAttributeData(obj, attribute_name) % non-virtual
             % Get the data for an attribute
             obj.iCheckAttributeExist(attribute_name);

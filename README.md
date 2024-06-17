@@ -79,7 +79,7 @@ If you know which type of dataset you are converting (matrix dataset or rectilin
 + [static] ``new_obj = LumericalDataset.convertDatasetArray(obj_array, new_parameter_name, new_parameter_values)``
 This is a static function. ``obj_array`` is an 1D array (or cell array) of unconverted or converted datasets. This function concatenates the datasets into one single dataset, ``new_obj``, if the parameters are exactly the same in each dataset and the attributes are the same except their values. After concatenation, a new parameter will be created, with ``new_parameter_name``, and ``new_parameter_values``. The resulting dataset will be ``new_obj``.
 ### Display information
-+ ``obj.showInformation()``
++ ``obj.showInformation()`` or ``disp(obj)`` or simply type the name of the object without the semicolon (MATLAB built-in display mechanism)
 This function will print out the basic information of the dataset, including the parameters and the attributes.
 ### Get raw data
 + ``result = obj.getParameterData(parameter_name)``
