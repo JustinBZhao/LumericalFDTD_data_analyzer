@@ -645,6 +645,24 @@ classdef (Abstract) LumericalDataset < matlab.mixin.Copyable
         new_obj = mergeDataset(obj, other_obj, varargin);
     end
 
+    methods
+        function new_obj = removeAttributes(obj, varargin)
+            % Remove attributes from the dataset
+            new_obj = obj.copy();
+
+            for i = 1:length(varargin)
+                attribute_name_to_remove = varargin{i};
+                iCheckAttributeExist(new_obj, attribute_name_to_remove);
+                new_obj.attributes = rmfield(new_obj.attributes, attribute_name_to_remove);
+                new_obj.attributes_component = rmfield(new_obj.attributes_component, attribute_name_to_remove);
+                new_obj.num_attributes = new_obj.num_attributes - 1;
+            end
+            if new_obj.num_attributes <= 0
+                error("At least one attribute must remain in the dataset!");
+            end
+        end
+    end
+
     % Helper functions that have different implementations for different
     % derived classes
     methods (Abstract, Access = protected)

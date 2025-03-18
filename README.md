@@ -128,6 +128,8 @@ The 2D plot produced here is a surface plot in 2D view. However, ``hSurf.XData``
 ### Dataset manipulation
 + ``new_obj = obj.removeDimensions([*parameter_name]);``
 Remove one or more parameters from the dataset specified by ``*parameter_names``. The dimensions in each attribute data corresponding to these parameters will be removed by slicing along these dimensions based on the slice index. x, y, and z positional vectors in a rectilinear dataset will be treated slightly differently, as they will be reduced to a singleton dimension instead of being completely removed [^2].
++ ``new_obj = obj.removeAttributes([*attribute_name]);``
+Remove one or more attributes from the dataset specified by ``*attribute_names``. Must keep at least one attribute left after removal.
 + ``new_obj = obj.mergeDataset(other_obj, [**option=value]);``
 Merge 2 datasets (``obj`` and ``other_obj``) together. Both datasets must have the same sets of parameters, except that one of the parameter data could be different. Can specify options in the form of option-value pairs.
 "ParameterName": specify the name of the parameter to merge. Otherwise, it will be inferred from the content in the datasets.
